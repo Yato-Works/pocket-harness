@@ -149,6 +149,11 @@ class AgentRun:
     tool_call_delivered_as_text: bool = False
     #: How often an empty answer was recovered by asking the model to continue.
     empty_retries: int = 0
+    #: A human readable status, set when the run stops for a reason the client
+    #: has to explain (a repeated identical failure, for example).
+    status: str = ""
+    #: How often the same call failed with the same error.
+    repeated_identical_failures: int = 0
     #: The upstream returned an empty completion.
     empty_completion: bool = False
     final_text: str = ""
@@ -171,6 +176,8 @@ class AgentRun:
             "tool_call_delivered_as_text": self.tool_call_delivered_as_text,
             "empty_completion": self.empty_completion,
             "empty_retries": self.empty_retries,
+            "status": self.status,
+            "repeated_identical_failures": self.repeated_identical_failures,
         }
 
 
@@ -263,6 +270,86 @@ class ToolBox:
         )
 
 
+def describe_call_problem(
+    schemas: dict[str, dict[str, Any]], name: str, arguments_text: str
+) -> str:
+    """Return a precise, deterministic tool error for a call that is not usable.
+
+    The error states *what* is missing or wrong, derived only from the client's
+    own tool schema. It never guesses a value, a path or a command: the model
+    has to supply it. The text is stable for the same call, so a client that
+    repeats the call repeats the error.
+    """
+    if name not in schemas:
+        available = ", ".join(sorted(schemas)) or "(none)"
+        return (
+            f"error: there is no tool named {name!r}. The available tools are: {available}. "
+            "Call one of them with its arguments."
+        )
+    try:
+        arguments = json.loads(arguments_text or "{}")
+    except json.JSONDecodeError:
+        return (
+            "error: the arguments are not valid JSON. Send a JSON object with the "
+            "arguments of the tool."
+        )
+    if not isinstance(arguments, dict):
+        return (
+            "error: the arguments must be a JSON object. Send a JSON object with the "
+            "arguments of the tool."
+        )
+
+    schema = schemas[name] or {}
+    properties = schema.get("properties") or {}
+    required = [str(item) for item in (schema.get("required") or [])]
+    problems: list[str] = []
+    for key in required:
+        if key not in arguments:
+            expected = (properties.get(key) or {}).get("type", "any")
+            problems.append(f"the required argument {key!r} ({expected}) is missing")
+    for key, value in sorted(arguments.items()):
+        spec = properties.get(key)
+        if not isinstance(spec, dict):
+            continue
+        expected = spec.get("type")
+        actual = _json_type(value)
+        if expected and actual and expected != actual and expected != "any":
+            problems.append(
+                f"the argument {key!r} must be of type {expected}, but it is {actual}"
+            )
+        choices = spec.get("enum")
+        if isinstance(choices, list) and value not in choices:
+            allowed = ", ".join(repr(choice) for choice in choices)
+            problems.append(
+                f"the argument {key!r} must be one of: {allowed}"
+            )
+    if not problems:
+        problems.append("the arguments do not satisfy the tool schema")
+    body = "; ".join(problems)
+    return (
+        f"error: the call to {name!r} was rejected before it was executed. {body}. "
+        "Send the call again with arguments that satisfy the tool schema."
+    )
+
+
+def _json_type(value: Any) -> str:
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    if value is None:
+        return "null"
+    return "any"
+
+
 def validate_tool_call(
     schemas: dict[str, dict[str, Any]], name: str, arguments_text: str
 ) -> tuple[bool, str]:
@@ -308,6 +395,7 @@ class ScriptedAgent:
         temperature: float | None = 0.0,
         seed: int | None = None,
         max_empty_retries: int = 1,
+        max_identical_failures: int = 3,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -325,6 +413,10 @@ class ScriptedAgent:
         self.seed = seed
         #: How often an empty answer may be recovered by asking again.
         self.max_empty_retries = max_empty_retries
+        #: How often the same call may fail with the same error before the task
+        #: is stopped instead of repeating the call for ever.
+        self.max_identical_failures = max_identical_failures
+        self._identical_failures: dict[tuple[str, str, str], int] = {}
         self.schemas = {
             tool["function"]["name"]: tool["function"]["parameters"] for tool in TOOL_SCHEMAS
         }
@@ -455,6 +547,7 @@ class ScriptedAgent:
                 run.time_to_first_tool_call = round(time.monotonic() - started, 4)
 
             messages.append(message)
+            stop_after_turn = False
             for call in calls:
                 function = call.get("function") or {}
                 name = str(function.get("name") or "")
@@ -469,6 +562,42 @@ class ScriptedAgent:
                 if not isinstance(arguments, dict):
                     arguments = {}
                 outcome = self.toolbox.execute(name, arguments)
+                if not valid:
+                    # The call does not satisfy the client's schema: it is not
+                    # executed at all, and the model is told exactly what is
+                    # missing (without any value being guessed).
+                    outcome = ToolOutcome(
+                        name,
+                        arguments,
+                        False,
+                        describe_call_problem(self.schemas, name, arguments_text),
+                        error_class,
+                    )
+                    failure_key = (name, _hash(arguments_text), error_class)
+                    self._identical_failures[failure_key] = (
+                        self._identical_failures.get(failure_key, 0) + 1
+                    )
+                    if (
+                        self._identical_failures[failure_key]
+                        >= self.max_identical_failures
+                    ):
+                        run.repeated_identical_failures = self._identical_failures[failure_key]
+                        run.stop_reason = "repeated_identical_failure"
+                        run.status = (
+                            f"the call to {name!r} failed "
+                            f"{self._identical_failures[failure_key]} times with the same "
+                            "error; stopping instead of repeating it"
+                        )
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": call.get("id", ""),
+                                "name": name,
+                                "content": outcome.content,
+                            }
+                        )
+                        stop_after_turn = True
+                        break
                 run.tool_calls.append(
                     {
                         "name": name,
@@ -487,6 +616,8 @@ class ScriptedAgent:
                         "content": sanitize_tool_output(outcome.content, self.workdir),
                     }
                 )
+            if stop_after_turn:
+                break
 
         run.wall_seconds = time.monotonic() - started
         return run

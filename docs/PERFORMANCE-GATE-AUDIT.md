@@ -697,7 +697,76 @@ The remaining question is no longer "does the proxy work" but:
 
 ---
 
-## 16. Reproducing this document
+## 16. Phase four — what should the client answer to an unusable tool call?
+
+*(The gate was evaluated in phase three: G0 pass, G1 stop. This phase asks the
+question that result points at: the dominant failure is a tool call that
+cannot be validated without guessing, so what is the right response to it?)*
+
+### 16.1 The two candidate answers were implemented
+
+**A deterministic, schema-derived tool error (the client).** The client now
+refuses an unusable call *before executing it* and answers with a precise
+error derived from the client's own schema: which required arguments are
+missing and with which type, which argument has the wrong type, which value is
+outside the enum, that the call was not executed, and that it has to be sent
+again. It never guesses a value, a path or a command, and the same call always
+produces the same text
+(`tests/test_tool_error_contract.py`, [ADR 0005](decisions/0005-precise-tool-error.md)).
+
+**A bounded interruption.** A call that fails the same way three times ends
+the task with a status instead of burning the step budget.
+
+### 16.2 The mechanism works — and the measurement cannot resolve it
+
+A/B on the *same* cells (the fresh held-out set, 18 runs, everything else
+identical; the only change is the text the client answers with):
+
+| | before | after |
+|---|---|---|
+| invalid tool calls reaching the model | 54 | **9** |
+| runs where an M failure became a pass | — | **5** |
+| runs where a pass became a failure | — | **6** |
+| runs that ended in an empty answer | 0 | 6 |
+| passed (both conditions) | 6 | 5 |
+
+The intervention does exactly what it was designed to do — the model stops
+emitting broken calls, and the targeted failure class turns into completed
+tasks. It also **perturbs the whole conversation**: every later turn sees a
+different tool result, so runs move in both directions.
+
+### 16.3 The suite cannot resolve an effect of this size — and now that is quantified
+
+The perturbation above was *not* an attempt to change the outcome: it was a
+different error text. It moved **11 of the 18 runs** (5 up, 6 down), i.e. the
+measurement's own noise band is about **±5 runs out of 18 ≈ ±28 percentage
+points**.
+
+The G1 gate asks for a **+30 point** difference. The noise band of the
+measurement is the same size as the effect the gate asks for. A three-task
+held-out suite therefore *cannot* evaluate G1 — not because the effect is
+absent, but because the instrument is coarser than the threshold.
+
+This is the most useful number of the phase: it converts "the sample is small"
+into a concrete requirement. With the observed noise band, a suite of *n*
+held-out tasks resolves a difference of roughly `±5/n` percentage points per
+task, so detecting +30 points with a 2:1 signal-to-noise ratio needs
+comparable to **40–60 held-out tasks** — which is exactly what the plan's
+public release gate demands (§11.5: "at least 40 tasks").
+
+### 16.4 What this phase therefore establishes
+
+* The answer to "what should the client say" is implemented, tested and
+  measured: a precise schema-derived error fixes the class it targets.
+* The *aggregate* effect of that answer cannot be measured on the current
+  suite, and the reason is measured rather than assumed.
+* The next step is therefore **not** another mechanism. It is either a bigger
+  held-out suite (the public release gate) or a lower-variance upstream (a
+  model whose failures are not perturbed by an unrelated sentence).
+
+---
+
+## 17. Reproducing this document
 
 ```bash
 git clone <this repository> && cd Pocket-Harness
@@ -716,9 +785,13 @@ uv venv && uv pip install -e ".[dev]"
 .venv\Scripts\python.exe scripts\probe_determinism.py http://127.0.0.1:11434/v1 5
 .venv\Scripts\python.exe scripts\probe_seed_effect.py http://127.0.0.1:11434/v1 3
 .venv\Scripts\python.exe scripts\probe_cache_state.py http://127.0.0.1:11434/v1 qwen2.5:7b-instruct 4
+.venv\Scripts\python.exe scripts\probe_empty_in_run.py heldout-07-clamp 1
+.venv\Scripts\python.exe scripts\probe_empty_endpoints.py
+.venv\Scripts\python.exe scripts\probe_empty_recovery.py
 ```
 
 The recorded raw records in [`benchmarks/`](benchmarks/) are the ones the tables
 above were computed from; `scripts/reclassify_records.py` reproduces the
-re-classification of the pre-lock matrix without spending new model calls, and
-`scripts/compare_runs.py` reproduces the reproducibility check.
+re-classification of the pre-lock matrix without spending new model calls,
+`scripts/compare_runs.py` reproduces the reproducibility check and
+`scripts/compare_subset.py` reproduces the A/B comparison.

@@ -206,6 +206,7 @@ Two design decisions that these tests depend on are recorded in
 * [ADR 0002 — what C4 does when it detects a loop](docs/decisions/0002-c4-escalation.md)
 * [ADR 0003 — whether the proxy may refuse a request](docs/decisions/0003-c4-abort-path.md)
 * [ADR 0004 — the corrective retry is opt-in](docs/decisions/0004-corrective-retry-default-off.md)
+* [ADR 0005 — the client answers an unusable tool call precisely](docs/decisions/0005-precise-tool-error.md)
 
 ## Evidence and state
 
@@ -490,9 +491,11 @@ retry of §6 C3 §6 lowered the held-out result by 33 points and is therefore
 
 **No completion-rate improvement is claimed.** With three held-out tasks and
 four usable pairs at most, p = 1.0 does not prove the absence of an effect; it
-means this suite cannot resolve one. See
-[`docs/PERFORMANCE-GATE-AUDIT.md`](docs/PERFORMANCE-GATE-AUDIT.md) for the
-numbers, the raw records and the reasoning.
+means this suite cannot resolve one. The suite's own noise band was measured:
+an unrelated change to the tool-error text moved **11 of 18 runs** (5 up,
+6 down), i.e. roughly **±28 points** — the same size as the +30 point gate.
+Resolving G1 needs a held-out suite of the size the plan's public release gate
+already asks for (40+ tasks), or a lower-variance upstream.
 
 Still open:
 
@@ -501,7 +504,11 @@ Still open:
   needs 40.
 - The dominant failure class is **M**: the model emits `write_file` with no
   arguments at all. C3 detects it and must not guess the missing values, so
-  the open design question is what the *right* response to such a call is.
+  the client answers with a precise, schema-derived error
+  ([ADR 0005](docs/decisions/0005-precise-tool-error.md)) and stops a task
+  that repeats the same failing call three times. That fixes the class it
+  targets (5 runs moved from an M failure to a pass in the A/B) but perturbs
+  every later turn, so the aggregate is not resolvable on this suite.
 - The upstream's empty-answer failure mode is understood and partly mitigated
   (the client asks once more), but it is a property of the model, not of the
   proxy.
