@@ -430,6 +430,135 @@ async def test_c3_does_not_touch_a_call_that_is_already_usable(config, store) ->
     assert payload_out["outcomes"][0]["text_changed"] is False
 
 
+async def test_c3_issues_one_corrective_retry_when_a_call_cannot_be_repaired(config, store) -> None:
+    """Plan.md §6 C3 §6: a bounded corrective inference retry."""
+    config.repair.max_corrective_retries_per_request = 1
+    config.repair.max_corrective_retries_per_task = 3
+    calls: list[dict[str, Any]] = []
+
+    class RetryRecorder(Recorder):
+        def handler(self, request: httpx.Request) -> httpx.Response:
+            calls.append(json.loads(request.content.decode("utf-8")))
+            if len(calls) == 1:
+                # First answer: a tool call with no arguments at all.
+                return httpx.Response(
+                    200,
+                    json=chat_body(
+                        tool_calls=[
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {"name": "write_file", "arguments": "{}"},
+                            }
+                        ]
+                    ),
+                )
+            # The corrective retry: a usable call.
+            return httpx.Response(
+                200,
+                json=chat_body(
+                    tool_calls=[
+                        {
+                            "id": "call_2",
+                            "type": "function",
+                            "function": {
+                                "name": "write_file",
+                                "arguments": '{"path": "a.py", "content": "x"}',
+                            },
+                        }
+                    ]
+                ),
+            )
+
+    recorder = RetryRecorder()
+    payload = {
+        "model": "test-model",
+        "messages": [{"role": "user", "content": "write a.py"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "write_file",
+                    "description": "Write a file.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "content": {"type": "string"},
+                        },
+                        "required": ["path", "content"],
+                    },
+                },
+            }
+        ],
+    }
+    response, events = await drive(config, store, payload, recorder)
+
+    assert len(calls) == 2, "the proxy must issue exactly one corrective retry"
+    hint = calls[1]["messages"][-1]["content"]
+    assert "[pocket:C3]" in hint
+    assert "write_file" in hint
+
+    call = response.json()["choices"][0]["message"]["tool_calls"][0]
+    assert json.loads(call["function"]["arguments"]) == {"path": "a.py", "content": "x"}
+
+    retries = events_of(events, "repair.retry")
+    assert retries
+    assert retries[0]["payload"]["failed"] == 1
+
+
+async def test_c3_respects_the_corrective_retry_budget(config, store) -> None:
+    """The retry is bounded per request and per task."""
+    config.repair.max_corrective_retries_per_request = 0
+    config.repair.max_corrective_retries_per_task = 0
+    calls: list[dict[str, Any]] = []
+
+    class CountingRecorder(Recorder):
+        def handler(self, request: httpx.Request) -> httpx.Response:
+            calls.append(json.loads(request.content.decode("utf-8")))
+            return httpx.Response(
+                200,
+                json=chat_body(
+                    tool_calls=[
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {"name": "write_file", "arguments": "{}"},
+                        }
+                    ]
+                ),
+            )
+
+    recorder = CountingRecorder()
+    payload = {
+        "model": "test-model",
+        "messages": [{"role": "user", "content": "write a.py"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "write_file",
+                    "description": "Write a file.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "content": {"type": "string"},
+                        },
+                        "required": ["path", "content"],
+                    },
+                },
+            }
+        ],
+    }
+    response, events = await drive(config, store, payload, recorder)
+    assert len(calls) == 1, "no retry may be issued when the budget is zero"
+    assert not events_of(events, "repair.retry")
+    # The original invalid call is still reported to the client.
+    call = response.json()["choices"][0]["message"]["tool_calls"][0]
+    assert call["function"]["arguments"] == "{}"
+
+
 async def test_c3_leaves_an_unrepairable_call_untouched(config, store) -> None:
     recorder = Recorder(
         chat_body(
@@ -648,3 +777,49 @@ async def test_c4_warning_is_accounted_for_in_the_budget(config, store) -> None:
     token_count = transformed[0]["payload"]["token_count"]
     budget = config.effective_context_length() - config.context.reserved_output_tokens
     assert token_count["after"] <= budget
+
+
+async def test_c4_abort_is_off_by_default(config, store) -> None:
+    """ADR 0003: the refusal is opt-in."""
+    recorder = Recorder()
+    payload = {
+        "model": "test-model",
+        "messages": _history_with_repeats(3),
+        "tools": [tool("read_file")],
+    }
+    response, events = await drive(config, store, payload, recorder)
+    assert response.status_code == 200
+    assert recorder.forwarded
+
+
+async def test_c4_abort_refuses_a_repeated_call_when_enabled(config, store) -> None:
+    """ADR 0003: the refusal is a typed 4xx and the request is not forwarded."""
+    config.loop_guard.abort_on_repeat = True
+    recorder = Recorder()
+    payload = {
+        "model": "test-model",
+        "messages": _history_with_repeats(3),
+        "tools": [tool("read_file")],
+    }
+    response, events = await drive(config, store, payload, recorder)
+    assert response.status_code == 409
+    body = response.json()
+    assert body["error"]["type"] == "loop_repeated_call"
+    assert "change the call or stop" in body["error"]["message"]
+    assert not recorder.forwarded, "the request must not reach the upstream"
+    aborted = events_of(events, "loop.aborted")
+    assert aborted
+    assert aborted[0]["payload"]["action"] == "refuse the request"
+
+
+async def test_c4_abort_does_not_fire_without_a_repeat(config, store) -> None:
+    config.loop_guard.abort_on_repeat = True
+    recorder = Recorder()
+    payload = {
+        "model": "test-model",
+        "messages": _history_with_repeats(2),
+        "tools": [tool("read_file")],
+    }
+    response, _events = await drive(config, store, payload, recorder)
+    assert response.status_code == 200
+    assert recorder.forwarded

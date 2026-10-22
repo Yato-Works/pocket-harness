@@ -1,10 +1,19 @@
 {
   "task_id": "heldout-02-fix-report-script",
-  "split": "held-out",
+  "split": "dev",
   "description": "Small script task: the report script crashes on the header row.",
   "prompt": "The scripts/report.py script crashes when it is run on data.csv. Run it, find the problem and fix the script so that it prints the total of the amount column. Do not modify the tests or the data file.",
-  "test_command": ["{python}", "-m", "pytest", "-q"],
-  "forbidden_paths": ["tests/", "data.csv"],
+  "test_command": [
+    "{python}",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "forbidden_paths": [
+    "tests/",
+    "data.csv"
+  ],
   "max_steps": 14,
-  "max_wall_seconds": 300
+  "max_wall_seconds": 300,
+  "note": "inspected during development; not usable as held-out data any more"
 }

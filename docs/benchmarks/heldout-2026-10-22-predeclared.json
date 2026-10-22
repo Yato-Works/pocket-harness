@@ -1,0 +1,22 @@
+{
+  "held_out_tasks": [
+    "heldout-07-clamp",
+    "heldout-08-word-count",
+    "heldout-09-merge-dicts"
+  ],
+  "temperature": 0.0,
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "corrective_retries_per_request": 1,
+  "corrective_retries_per_task": 3,
+  "abort_on_repeat": false,
+  "empty_retry_budget_per_task": 1,
+  "conditions": [
+    "baseline",
+    "harness"
+  ],
+  "predeclared_conditions_sha256": "2109c26913794866d4c557a5718ce2be227ba17bb4bc9903e322fc3ad8eec344"
+}

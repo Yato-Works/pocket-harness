@@ -28,6 +28,43 @@ FIXES = {
         "running += int(parts[1]) if parts[0] != 'name' else 0",
     ),
     "heldout-03-slice-off-by-one": ("sequence.py", "values[: count - 1]", "values[:count]"),
+    "heldout-04-format-price": (
+        "pricing.py",
+        "{cents / 100:.0f}",
+        "{cents / 100:.2f}",
+    ),
+    "heldout-05-dedupe": (
+        "lists.py",
+        None,
+        '\n\ndef dedupe(values):\n    """Return the values without repetitions."""\n'
+        "    result = []\n"
+        "    for value in values:\n"
+        "        if value not in result:\n"
+        "            result.append(value)\n"
+        "    return result\n",
+    ),
+    "heldout-06-leap-year": (
+        "calendar.py",
+        "return year % 4 == 0",
+        "return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)",
+    ),
+    "heldout-07-clamp": (
+        "bounds.py",
+        "    if value < low:\n        return high\n    if value > high:\n        return low",
+        "    if value < low:\n        return low\n    if value > high:\n        return high",
+    ),
+    "heldout-08-word-count": (
+        "words.py",
+        "return len(text.split()) + 1",
+        "return len(text.split())",
+    ),
+    "heldout-09-merge-dicts": (
+        "mappings.py",
+        "    result = dict(other)\n"
+        "    for key, value in other.items():\n"
+        "        result[key] = value\n    return result",
+        "    result = dict(base)\n    result.update(other)\n    return result",
+    ),
 }
 
 
@@ -68,3 +105,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

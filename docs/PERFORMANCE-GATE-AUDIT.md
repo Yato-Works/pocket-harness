@@ -547,7 +547,157 @@ step is to redefine the hypothesis and the target, not to add features.
 
 ---
 
-## 15. Reproducing this document
+## 15. Phase three — the empty answers, the corrective retry, and a clean held-out set
+
+*(Phase two measured the gate under reproducible conditions and found no
+difference. Phase three asked the two questions that were still open: what
+actually causes the upstream's empty answers, and what happens when the
+mechanisms that *are* triggered are allowed to act.)*
+
+### 15.1 The empty answers were diagnosed, not guessed
+
+Half of the runs were lost to class R (an empty upstream answer). The failure
+was bisected to the last message:
+
+| step | result |
+|---|---|
+| `probe_empty_in_run.py` | the failing request is captured and replays **empty 3/3** — it is deterministic |
+| `probe_empty_endpoints.py` | the native `/api/chat` endpoint agrees: `done_reason: stop`, `eval_count: 65`, `content: ''`, `tool_calls: []` |
+| `probe_empty_stream.py` | the **raw stream carries nothing**: 65 tokens were generated and none of them reached the client |
+| `probe_empty_bisect.py` | removing the system message, the task message or *either* of the first two tool results makes the answer normal; the trigger needs **two or more tool results with substantial, different content** |
+| `probe_empty_system.py` | the trigger is a brittle interaction between the **system prompt** and the conversation: with the captured prompt the answer is empty, with four other phrasings it is a normal tool call |
+
+Conclusions:
+
+* It is an upstream failure (class R is correct), not a protocol-mapping bug:
+  both endpoints report the same thing.
+* It is deterministic, so **a retry cannot recover it** — the same request
+  always produces the same empty answer.
+* It is *triggered* by the benchmark's own system prompt, which makes it a
+  **harness defect**, not a model property: the model was on its way to acting
+  and the generation collapsed.
+
+Two harness changes followed, both applied identically in both conditions:
+
+1. The system prompt was changed and is now **recorded in the run manifest**
+   (`system_prompt`, `system_prompt_sha256`) as a declared condition, because
+   the collapse is prompt-specific.
+2. The agent now asks once more when the answer is empty
+   (`EMPTY_RETRY_NUDGE`). This is ordinary client behaviour — an agent that
+   receives nothing says "your last response was empty, continue" — and
+   `probe_empty_recovery.py` shows that it recovers the answer (the empty
+   answer becomes a tool call). Every retry is counted as a step and recorded.
+
+The effect: the class-R losses on the fresh held-out set went from 12 of 18
+runs to **0 of 18**.
+
+### 15.2 The corrective retry was implemented — and it hurts
+
+Plan.md §6 C3 §6 specifies an optional corrective inference retry. The
+configuration had the budget fields but nothing used them. The dominant
+failure class of the baseline is **M** — the model emits `write_file` with *no
+arguments at all* — and §6 C3 §3 forbids inventing them, so the corrective
+retry is the only sanctioned remedy. It was implemented (bounded, logged,
+counted) and then measured.
+
+| configuration (fresh held-out set, identical in every other respect) | baseline | harness | paired difference |
+|---|---|---|---|
+| corrective retry **on** (the predeclared condition) | 3/9 | **0/9** | **−33.3 points** |
+| corrective retry off (C4 warning on) | 3/9 | 3/9 | 0.0 points |
+| corrective retry off, C4 warning off (pure pass-through) | 3/9 | 3/9 | 0.0 points |
+
+The retry replaces the model's answer with the answer of a second request that
+carries a corrective hint. That throws away a first answer that was often
+*usable* (the model had a plan; only the arguments were incomplete) and
+replaces it with a second, weaker one. The number of tool calls that still
+fail validation afterwards rises from 21 to 54.
+
+**Decision:** the retry stays implemented but is **off by default**
+([ADR 0004](decisions/0004-corrective-retry-default-off.md)), which is what
+§6 C3 §6 allows ("optional") and what the evidence supports.
+
+### 15.3 The C4 abort path: the client contract was checked first
+
+[ADR 0003](decisions/0003-c4-abort-path.md) records the check: a refusal must
+be a 4xx (a client retries 5xx), must be deterministic, must not touch the
+model, the temperature, the seed or the tool permissions, and must give the
+client a status it can show. The refusal is implemented, opt-in and off by
+default. In the measured runs it did not change any outcome, because the
+current conversations do not contain an *exact* repeat in the request history.
+
+### 15.4 Three held-out sets, each used once
+
+Every task set whose results were inspected was retired to the development
+split. The final evaluation used a set that had never been run:
+
+| set | tasks | used for |
+|---|---|---|
+| `heldout-01..03` | 3 | development (inspected during the first audit) |
+| `heldout-04..06` | 3 | development (inspected during the empty-answer diagnosis) |
+| `heldout-07..09` | 3 | **the held-out evaluation** |
+
+The conditions were declared in
+[`benchmarks/heldout-2026-10-22-predeclared.json`](benchmarks/heldout-2026-10-22-predeclared.json)
+before the run: the tasks, `temperature = 0`, the three seeds, the retry budget,
+the abort flag, the empty-retry budget and the two conditions.
+
+### 15.5 The gate, on the untouched held-out set
+
+Raw: [`benchmarks/heldout-final.json`](benchmarks/heldout-final.json)
+(18 runs, all eligible, reproducible 18/18)
+
+| condition | passed | completion rate | 95% Wilson | failure classes |
+|---|---|---|---|---|
+| baseline | 3/9 | 0.333 | [0.121, 0.646] | M 6 |
+| harness | 3/9 | 0.333 | [0.121, 0.646] | M 6 |
+
+Paired difference **0.0 points**, exact McNemar **p = 1.0**. Proxy overhead
+p50 0.87 ms, p95 4.57 ms.
+
+| Gate | Verdict | Why |
+|---|---|---|
+| **G0 — problem fit** | **pass** | 6 of 6 eligible baseline failures (100 %) are attributable to O/M/L/S — the failures *are* in the proxy's domain. The premise holds. |
+| **G1 — demonstrated value** | **stop** | the held-out difference is **0.0 points**. The mechanisms fire (9 C4 escalations, 21 invalid calls detected) and the completion rate does not move. |
+| **Public release gate** | **fail** | 3 held-out tasks; the gate needs 40. |
+| **§2 proxy overhead** | **met** | p50 0.87 ms, p95 4.57 ms. |
+
+**What G0 passing and G1 stopping mean together.** The premise of the project
+is *supported*: the local baseline failures really are malformed tool calls and
+repetitions, not reasoning failures. The mechanisms are *not* sufficient:
+detecting a malformed call and refusing to guess does not make the task
+complete, and the client's own tool error does not stop the model from
+repeating the broken call.
+
+### 15.6 The honest reading of p = 1.0
+
+With 9 usable pairs, four discordant pairs at most, and a deterministic
+upstream, p = 1.0 does **not** prove that the proxy has no effect — it means
+that *this* suite cannot resolve an effect of the size the gate asks for. The
+sample is three tasks; the plan itself warns that "with only 10 held-out
+tasks, uncertainty is substantial". What can be said is bounded:
+
+* the difference is **0.0 points** on three tasks, with a 95% Wilson interval
+  of roughly ±0.26 on each side;
+* the one intervention that was enabled during the predeclared run made the
+  result **worse** by 33 points, and removing it restored parity;
+* the failure class that dominates (M) is the class the proxy detects but
+  deliberately cannot repair.
+
+### 15.7 What the next phase has to answer
+
+The remaining question is no longer "does the proxy work" but:
+
+> **What is the right response to a tool call that cannot be validated
+> without guessing?** The client already answers with a tool error
+> (`error: invalid path`) and the model repeats the identical broken call. The
+> options are a synthetic tool result, a refusal, a different client-side
+> policy, or accepting that this failure class is outside the proxy's reach.
+> Each of them is a design decision with a measurable consequence, and the
+> measurement apparatus to compare them now exists.
+
+---
+
+## 16. Reproducing this document
 
 ```bash
 git clone <this repository> && cd Pocket-Harness

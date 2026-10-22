@@ -133,6 +133,13 @@ def _cmd_bench_repo(args: argparse.Namespace) -> int:
     from pocket_harness.repo_bench import load_repo_tasks, run_repo_benchmark
 
     config = _load(args)
+    if getattr(args, "abort_on_repeat", False):
+        config.loop_guard.abort_on_repeat = True
+    if getattr(args, "no_c4_warning", False):
+        config.loop_guard.warn_on_repeat = False
+    if getattr(args, "no_corrective_retry", False):
+        config.repair.max_corrective_retries_per_request = 0
+        config.repair.max_corrective_retries_per_task = 0
     seeds = [int(part) for part in str(args.seeds).split(",") if part.strip()]
     tasks = load_repo_tasks(Path(args.tasks) if args.tasks else None)
     result = asyncio.run(
@@ -376,6 +383,21 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.0,
         help="sampling temperature sent to the upstream (0 means greedy and reproducible)",
+    )
+    p_bench.add_argument(
+        "--abort-on-repeat",
+        action="store_true",
+        help="let the proxy refuse a request that repeats a tool call (ADR 0003)",
+    )
+    p_bench.add_argument(
+        "--no-c4-warning",
+        action="store_true",
+        help="do not append the C4 repetition warning (diagnosis only)",
+    )
+    p_bench.add_argument(
+        "--no-corrective-retry",
+        action="store_true",
+        help="do not issue a corrective inference retry (diagnosis only)",
     )
     p_bench.add_argument(
         "--keep-worktrees",

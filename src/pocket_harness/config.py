@@ -143,8 +143,11 @@ class ToolsConfig(BaseModel):
 class RepairConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    max_corrective_retries_per_request: int = 1
-    max_corrective_retries_per_task: int = 3
+    #: Plan.md §6 C3 §6 allows an optional corrective inference retry. It is
+    #: off by default because the measurement showed it lowers the completion
+    #: rate on the tasks that were evaluated (ADR 0004).
+    max_corrective_retries_per_request: int = 0
+    max_corrective_retries_per_task: int = 0
     allow_fuzzy_tool_name: bool = False
     allow_schema_defaults: bool = False
 
@@ -156,6 +159,12 @@ class LoopGuardConfig(BaseModel):
     max_steps_per_task: int = 40
     max_wall_seconds: int = 1800
     detect_oscillation: bool = True
+    #: Append the deterministic warning when a repetition is detected (ADR 0002).
+    warn_on_repeat: bool = True
+    #: Refuse a request whose history shows an exact repeated tool call.
+    #: Off by default: a refusal can only stop the waste, never make a failing
+    #: task pass (ADR 0003).
+    abort_on_repeat: bool = False
 
 
 class LoggingConfig(BaseModel):

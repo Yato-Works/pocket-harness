@@ -204,6 +204,8 @@ Two design decisions that these tests depend on are recorded in
 
 * [ADR 0001 — where a repaired tool call is applied](docs/decisions/0001-c3-application-point.md)
 * [ADR 0002 — what C4 does when it detects a loop](docs/decisions/0002-c4-escalation.md)
+* [ADR 0003 — whether the proxy may refuse a request](docs/decisions/0003-c4-abort-path.md)
+* [ADR 0004 — the corrective retry is opt-in](docs/decisions/0004-corrective-retry-default-off.md)
 
 ## Evidence and state
 
@@ -400,6 +402,21 @@ The benchmark therefore pins `temperature = 0` and the seed
 (`bench --temperature 0 --seeds 1,2,3`) and reports the limitation instead of
 claiming seeded reproducibility.
 
+### The upstream sometimes answers with nothing
+
+With `temperature = 0` the model occasionally emits a generation that decodes
+into **no content and no tool call**: `done_reason: stop`, `eval_count: 65`,
+and an empty message — on both the native and the OpenAI-compatible endpoint,
+and the raw stream carries nothing (`scripts/probe_empty_endpoints.py`,
+`scripts/probe_empty_stream.py`). The trigger is a brittle interaction between
+the system prompt and a conversation that already contains two substantial
+tool results; it is deterministic, so a retry of the *same* request cannot
+recover it.
+
+Asking the model to continue *does* recover it
+(`scripts/probe_empty_recovery.py`), so the benchmark's client asks once more
+and counts the retry.
+
 ## Development
 
 ```bash
@@ -456,22 +473,36 @@ p95 5.6 ms, well inside the plan's p95 ≤ 50 ms target; the benchmark matrix is
 the sampling is pinned and the volatile parts of the tool output are removed.
 
 **Implemented but *not* demonstrated** — the performance gates of `Plan.md` §11.5.
-G0 and G1 were measured and **both fail**, now under conditions that are
-reproducible and in which the mechanisms actually fire (C2 compressed 11 211
-tokens, C4 escalated three times). The completion difference is **0.0 points**:
-the interventions fired and changed nothing. The measured reason is that the
-local baseline failures are dominated by class **W** (wrong semantic edit,
-constraint violation, the model not acting) rather than by O/M/L/S, and that half
-of the runs are lost to upstream empty completions. See
+On a **fresh, untouched held-out set** (3 tasks × 3 seeds, conditions declared
+before the run, reproducible 18/18):
+
+| gate | verdict | why |
+|---|---|---|
+| G0 — problem fit | **pass** | 6 of 6 eligible baseline failures (100 %) are attributable to O/M/L/S: the local failures really are malformed tool calls and repetitions, not reasoning failures |
+| G1 — demonstrated value | **stop** | the held-out completion difference is **0.0 points** (3/9 vs 3/9, McNemar p = 1.0): the mechanisms fire and the completion rate does not move |
+| Public release gate | **fail** | 3 held-out tasks; the gate needs 40 |
+| §2 proxy overhead | **met** | p50 0.87 ms, p95 4.57 ms |
+
+The mechanisms are not idle — C4 escalated nine times, 21 invalid tool calls
+were detected — and one of them was actively harmful: the corrective inference
+retry of §6 C3 §6 lowered the held-out result by 33 points and is therefore
+**off by default** ([ADR 0004](docs/decisions/0004-corrective-retry-default-off.md)).
+
+**No completion-rate improvement is claimed.** With three held-out tasks and
+four usable pairs at most, p = 1.0 does not prove the absence of an effect; it
+means this suite cannot resolve one. See
 [`docs/PERFORMANCE-GATE-AUDIT.md`](docs/PERFORMANCE-GATE-AUDIT.md) for the
 numbers, the raw records and the reasoning.
 
 Still open:
 
-- The §11.1 task suite has 6 tasks, not 20, and the public release gate needs 40.
-- C1 never fires on this suite (the agent sends three tools, the cap is six) and
-  C3 never has anything to repair (9 invalid calls, 0 repairable).
+- The §11.1 task suite has 3 held-out tasks (12 in total, 9 of them retired
+  to development because their results were inspected); the public release gate
+  needs 40.
+- The dominant failure class is **M**: the model emits `write_file` with no
+  arguments at all. C3 detects it and must not guess the missing values, so
+  the open design question is what the *right* response to such a call is.
+- The upstream's empty-answer failure mode is understood and partly mitigated
+  (the client asks once more), but it is a property of the model, not of the
+  proxy.
 - No MoE model, no LM Studio, no Anthropic Messages API / Claude Code adapter.
-- The seeded-reproducibility requirement can only be met in the *reproducibility*
-  sense: the seed is accepted and ignored, so the three seeds are three
-  identical replicates.

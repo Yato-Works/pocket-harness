@@ -43,13 +43,17 @@ fuzzy_tool_name_repair = false
 max_description_chars = 200
 
 [repair]
-max_corrective_retries_per_request = 1
-max_corrective_retries_per_task = 3
+# The corrective inference retry of Plan.md section 6 C3 section 6 is
+# optional and OFF by default: the measurement showed that it lowers the
+# completion rate (see docs/decisions/0004-corrective-retry-default-off.md).
+max_corrective_retries_per_request = 0
+max_corrective_retries_per_task = 0
 allow_fuzzy_tool_name = false
 allow_schema_defaults = false
 
 [loop_guard]
 repeated_call_threshold = 3
+abort_on_repeat = false
 max_steps_per_task = 40
 max_wall_seconds = 1800
 detect_oscillation = true

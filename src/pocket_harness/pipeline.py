@@ -178,7 +178,7 @@ class Pipeline:
             repeated_call_threshold=self.config.loop_guard.repeated_call_threshold,
             detect_oscillation=self.config.loop_guard.detect_oscillation,
         )
-        if loop_events:
+        if loop_events and self.config.loop_guard.warn_on_repeat:
             warning = self._loop_guard.warning_text(loop_events)
             current = _with_appended_message(current, warning)
             rules.append(

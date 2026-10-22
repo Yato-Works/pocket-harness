@@ -27,7 +27,12 @@ from starlette.routing import Route
 
 from pocket_harness.canonical import CanonicalRequest
 from pocket_harness.components.context_budgeter import ContextOverflowError
-from pocket_harness.components.loop_guard import LoopGuard, LoopState
+from pocket_harness.components.loop_guard import (
+    LoopGuard,
+    LoopSignal,
+    LoopState,
+    detect_from_history,
+)
 from pocket_harness.components.tool_call_repair import ToolCallRepairer
 from pocket_harness.config import Config
 from pocket_harness.hashing import canonical_json
@@ -73,6 +78,8 @@ class ProxyService:
         self.sticky_tools: list[str] = []
         self.recent_tool_uses: list[str] = []
         self.retry_budget_used = 0
+        #: Corrective inference retries issued in this task (Plan.md 6 C3 6).
+        self.corrective_retries = 0
         #: Optional transport override, used by the tests to avoid a real upstream.
         self.transport: Any = None
 
@@ -179,7 +186,36 @@ class ProxyService:
         if dropped:
             self.emit("request.fields_dropped", {"fields": dropped})
 
-        # --- C1 / C2 / C6 --------------------------------------------------
+        # --- C1 / C2 / C4 / C6 ---------------------------------------------
+        # The loop state is derived from the request history, so the detection
+        # and the escalation are deterministic and a replay reproduces them
+        # (ADR 0002). With ``abort_on_repeat`` the proxy refuses the request
+        # instead of forwarding it (ADR 0003).
+        loop_events = detect_from_history(
+            canonical.messages,
+            repeated_call_threshold=self.config.loop_guard.repeated_call_threshold,
+            detect_oscillation=self.config.loop_guard.detect_oscillation,
+        )
+        if loop_events and self.config.loop_guard.abort_on_repeat:
+            repeated = next(
+                (event for event in loop_events if event.signal is LoopSignal.REPEATED_CALL),
+                None,
+            )
+            if repeated is not None:
+                self.emit(
+                    "loop.aborted",
+                    {
+                        "events": [event.as_dict() for event in loop_events],
+                        "action": "refuse the request",
+                    },
+                )
+                return self._error(
+                    "the agent repeated the same tool call; change the call or stop. "
+                    f"({repeated.detail})",
+                    409,
+                    "loop_repeated_call",
+                )
+
         transform_started = time.perf_counter()
         try:
             result = self.pipeline.transform(
@@ -232,6 +268,37 @@ class ProxyService:
 
     # ------------------------------------------------------------- responses
 
+    def _corrective_retry_allowed(self) -> bool:
+        """Return whether one corrective inference retry is still permitted.
+
+        Plan.md §6 C3 §6: the retry is a *repeated normal model request*, not a
+        hidden judge, and it is bounded by the configured budget per request and
+        per task.
+        """
+        per_request = self.config.repair.max_corrective_retries_per_request
+        per_task = self.config.repair.max_corrective_retries_per_task
+        if per_request <= 0 or per_task <= 0:
+            return False
+        return self.retry_budget_used < per_task
+
+    def _corrective_message(self, outcomes: list[dict[str, Any]]) -> str:
+        """Return the deterministic corrective hint for a failed tool call."""
+        failed = [outcome for outcome in outcomes if not outcome.get("ok")]
+        if not failed:
+            return ""
+        lines = [
+            "[pocket:C3] A tool call could not be validated and was not executed:"
+        ]
+        for outcome in failed:
+            tool = outcome.get("tool") or "<unknown>"
+            reason = outcome.get("error_class") or "M.unknown"
+            lines.append(f"  - tool {tool!r} failed with {reason}.")
+            lines.append(
+                "    Emit the call again with arguments that satisfy the schema of the "
+                "tool exactly. Do not omit required arguments."
+            )
+        return "\n".join(lines)
+
     async def _unary_response(
         self,
         client: UpstreamClient,
@@ -255,6 +322,51 @@ class ProxyService:
             return self._error("the upstream request failed", 502, "upstream_unavailable")
 
         repair, repairs = self._validate_tool_calls(collector, result)
+
+        # Plan.md §6 C3 §6: one explicit corrective inference retry while the
+        # budget permits it. It is a normal model request and it is counted.
+        if repair["failed"] and self._corrective_retry_allowed():
+            hint = self._corrective_message(repair["outcomes"])
+            if hint:
+                self.retry_budget_used += 1
+                retry_payload = dict(payload)
+                messages = list(payload.get("messages") or [])
+                messages.append({"role": "user", "content": hint})
+                retry_payload["messages"] = messages
+                self.emit(
+                    "repair.retry",
+                    {
+                        "attempt": self.retry_budget_used,
+                        "reason": "the tool call did not validate against the client schema",
+                        "failed": repair["failed"],
+                    },
+                )
+                try:
+                    retry_data, retry_collector = await client.create_chat(retry_payload)
+                except UpstreamError as exc:
+                    self.emit(
+                        "upstream.error",
+                        {"status_code": exc.status_code, "message": str(exc), "during": "repair.retry"},
+                    )
+                    retry_data, retry_collector = None, None
+                except Exception as exc:  # noqa: BLE001
+                    self.emit(
+                        "upstream.error",
+                        {"message": f"{type(exc).__name__}: {exc}", "during": "repair.retry"},
+                    )
+                    retry_data, retry_collector = None, None
+                if retry_data is not None and retry_collector is not None:
+                    retry_repair, retry_repairs = self._validate_tool_calls(
+                        retry_collector, result
+                    )
+                    # The retry is used when it produced something usable.
+                    if retry_collector.tool_call_list() and retry_repair["failed"] == 0:
+                        data = retry_data
+                        collector = retry_collector
+                        repair = retry_repair
+                        repairs = retry_repairs
+                        repair["corrective_retry"] = True
+
         elapsed = time.monotonic() - started
         self.emit(
             "response.completed",
@@ -265,6 +377,7 @@ class ProxyService:
                 "content_length": len(collector.text),
                 "tool_call_count": len(collector.tool_call_list()),
                 "repair": repair,
+                "corrective_retries": self.retry_budget_used,
             },
         )
         # ADR 0001: a repaired tool call is what the client receives.

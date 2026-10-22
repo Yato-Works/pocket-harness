@@ -1,0 +1,10 @@
+{
+  "task_id": "heldout-07-clamp",
+  "split": "held-out",
+  "description": "Failing-test repair: clamp() swaps the bounds instead of limiting to them.",
+  "prompt": "The tests in this project fail. Read the source, work out what is wrong with clamp(), and fix it so that every test passes. Do not modify the tests.",
+  "test_command": ["{python}", "-m", "pytest", "-q"],
+  "forbidden_paths": ["tests/"],
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

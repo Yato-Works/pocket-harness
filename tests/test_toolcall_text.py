@@ -12,6 +12,7 @@ import json
 
 import httpx
 
+from pocket_harness.agent import EMPTY_RETRY_NUDGE
 from pocket_harness.config import Config
 from pocket_harness.proxy import create_app
 from pocket_harness.state import StateStore
@@ -131,12 +132,62 @@ def test_the_agent_records_an_empty_completion(tmp_path) -> None:
                 workdir=tmp_path,
                 test_command=["true"],
                 client=client,
+                max_empty_retries=0,
             )
             return await agent.run("do it")
 
     result = asyncio.run(run())
     assert result.empty_completion is True
     assert result.stop_reason == "empty_completion"
+
+
+def test_the_agent_asks_once_more_after_an_empty_answer(tmp_path) -> None:
+    """An empty answer is recovered by asking the model to continue."""
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode("utf-8"))
+        seen.append(body)
+        if len(seen) == 1:
+            return httpx.Response(200, json=_response({"role": "assistant", "content": ""}))
+        if len(seen) == 2:
+            return httpx.Response(
+                200,
+                json=_response(
+                    {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {"name": "read_file", "arguments": '{"path": "a.py"}'},
+                            }
+                        ],
+                    }
+                ),
+            )
+        return httpx.Response(200, json=_response({"role": "assistant", "content": "done"}))
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            from pocket_harness.agent import ScriptedAgent
+
+            agent = ScriptedAgent(
+                base_url="http://upstream.test",
+                model="m",
+                workdir=tmp_path,
+                test_command=["true"],
+                client=client,
+            )
+            return await agent.run("do it")
+
+    result = asyncio.run(run())
+    assert len(seen) == 3
+    assert seen[1]["messages"][-1]["content"] == EMPTY_RETRY_NUDGE
+    assert result.empty_retries == 1
+    assert result.empty_completion is False
+    assert result.stop_reason == "model_stopped"
 
 
 async def test_the_proxy_records_a_text_delivered_call(tmp_path) -> None:

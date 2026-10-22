@@ -1,0 +1,10 @@
+{
+  "task_id": "heldout-09-merge-dicts",
+  "split": "held-out",
+  "description": "Failing-test repair: merge() drops the entries of the second mapping.",
+  "prompt": "The tests in this project fail. Read the source, work out what is wrong with merge(), and fix it so that every test passes. Do not modify the tests.",
+  "test_command": ["{python}", "-m", "pytest", "-q"],
+  "forbidden_paths": ["tests/"],
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

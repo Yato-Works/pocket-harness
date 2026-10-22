@@ -34,7 +34,13 @@ from typing import Any
 
 import httpx
 
-from pocket_harness.agent import AgentRun, ScriptedAgent, prepare_worktree
+from pocket_harness.agent import (
+    SYSTEM_PROMPT,
+    SYSTEM_PROMPT_SHA256,
+    AgentRun,
+    ScriptedAgent,
+    prepare_worktree,
+)
 from pocket_harness.config import Config
 from pocket_harness.proxy import create_app
 from pocket_harness.state import StateStore
@@ -517,6 +523,8 @@ def build_manifest(
         "seeds": seeds,
         "conditions": conditions,
         "temperature": temperature,
+        "system_prompt": SYSTEM_PROMPT,
+        "system_prompt_sha256": SYSTEM_PROMPT_SHA256,
         "python": platform.python_version(),
         "platform": platform.platform(),
         "cpu_count": _cpu_count(),

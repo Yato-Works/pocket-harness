@@ -17,6 +17,7 @@ difference and everything else stays identical.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -33,10 +34,17 @@ from pocket_harness.toolcall_text import find_text_tool_call
 
 SYSTEM_PROMPT = (
     "You are a careful coding assistant working inside a small Python project. "
-    "Use the provided tools to inspect and change the project, then run the tests. "
-    "Only make tool calls that are supported by the tool list. "
-    "Do not invent files that are not part of the project."
+    "Use the provided tools to inspect and change the project, then run the tests."
 )
+
+#: The system prompt is a *declared condition* of the benchmark: it is part of
+#: the client configuration, it is identical in both conditions, and it is
+#: recorded in the run manifest. It also has to be treated as brittle: with
+#: qwen2.5:7b-instruct at temperature 0, some wordings make the model emit a
+#: generation that decodes into nothing once it has read two or more files
+#: (see scripts/probe_empty_system.py). The benchmark therefore records the
+#: prompt and its hash with every run.
+SYSTEM_PROMPT_SHA256 = hashlib.sha256(SYSTEM_PROMPT.encode("utf-8")).hexdigest()
 
 TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
@@ -80,6 +88,13 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 MAX_READ_CHARS = 8000
 #: How much of the test output is returned to the model.
 MAX_TEST_OUTPUT_CHARS = 4000
+
+#: The nudge the client sends when the upstream answered with nothing. The
+#: upstream sometimes emits a generation that decodes into an empty message
+#: (class R); asking the model to continue recovers it (see
+#: scripts/probe_empty_recovery.py). It is a client behaviour, it is bounded and
+#: it is identical in both conditions.
+EMPTY_RETRY_NUDGE = "Your last response was empty. Please continue with the tool call."
 
 #: Volatile values that must not enter the model's context: a duration in the
 #: test output changes from run to run and makes the whole conversation (and
@@ -132,6 +147,8 @@ class AgentRun:
     context_overflow: bool = False
     #: The upstream delivered a tool call as text instead of a structured call.
     tool_call_delivered_as_text: bool = False
+    #: How often an empty answer was recovered by asking the model to continue.
+    empty_retries: int = 0
     #: The upstream returned an empty completion.
     empty_completion: bool = False
     final_text: str = ""
@@ -153,6 +170,7 @@ class AgentRun:
             "context_overflow": self.context_overflow,
             "tool_call_delivered_as_text": self.tool_call_delivered_as_text,
             "empty_completion": self.empty_completion,
+            "empty_retries": self.empty_retries,
         }
 
 
@@ -289,6 +307,7 @@ class ScriptedAgent:
         list_workspace: bool = True,
         temperature: float | None = 0.0,
         seed: int | None = None,
+        max_empty_retries: int = 1,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -304,6 +323,8 @@ class ScriptedAgent:
         #: that the upstream answers the same request the same way.
         self.temperature = temperature
         self.seed = seed
+        #: How often an empty answer may be recovered by asking again.
+        self.max_empty_retries = max_empty_retries
         self.schemas = {
             tool["function"]["name"]: tool["function"]["parameters"] for tool in TOOL_SCHEMAS
         }
@@ -409,10 +430,18 @@ class ScriptedAgent:
             run.final_text = message.get("content") or ""
             calls = message.get("tool_calls") or []
             if not calls:
-                # The upstream sometimes delivers a tool call as text, or
-                # returns nothing at all. Both are upstream-side delivery
-                # faults, not model reasoning failures, and the run must say
-                # so instead of silently ending.
+                # The upstream sometimes answers with a generation that decodes
+                # into nothing (class R). A client can recover from that by
+                # asking the model to continue; the behaviour is identical in
+                # both conditions and every retry is counted.
+                if not run.final_text.strip() and run.empty_retries < self.max_empty_retries:
+                    run.empty_retries += 1
+                    messages.append(message)
+                    messages.append({"role": "user", "content": EMPTY_RETRY_NUDGE})
+                    continue
+                # The upstream sometimes delivers a tool call as text. That is
+                # an upstream-side delivery fault, not a model reasoning
+                # failure, and the run must say so instead of silently ending.
                 if find_text_tool_call(run.final_text) is not None:
                     run.tool_call_delivered_as_text = True
                     run.stop_reason = "tool_call_delivered_as_text"
