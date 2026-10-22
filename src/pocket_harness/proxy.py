@@ -254,7 +254,7 @@ class ProxyService:
             self.emit("upstream.error", {"message": f"{type(exc).__name__}: {exc}"})
             return self._error("the upstream request failed", 502, "upstream_unavailable")
 
-        repair = self._validate_tool_calls(collector, result)
+        repair, repairs = self._validate_tool_calls(collector, result)
         elapsed = time.monotonic() - started
         self.emit(
             "response.completed",
@@ -267,6 +267,8 @@ class ProxyService:
                 "repair": repair,
             },
         )
+        # ADR 0001: a repaired tool call is what the client receives.
+        data = self._apply_repairs(data, repairs)
         return JSONResponse(data)
 
     async def _stream_response(
@@ -302,7 +304,7 @@ class ProxyService:
                 yield "data: [DONE]\n\n"
 
         async def finalize() -> None:
-            repair = self._validate_tool_calls(collector, result)
+            repair, _repairs = self._validate_tool_calls(collector, result)
             elapsed = time.monotonic() - started
             self.emit(
                 "response.completed",
@@ -326,13 +328,19 @@ class ProxyService:
 
     # ------------------------------------------------------------ C3 / C4
 
-    def _validate_tool_calls(self, collector: StreamCollector, result: Any) -> dict[str, Any]:
+    def _validate_tool_calls(
+        self, collector: StreamCollector, result: Any
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         """Validate the tool calls of a response with C3 and record the outcome.
 
-        A repair that succeeded locally is reported in the evidence log. The repaired
-        arguments are *not* silently substituted into the response body: the client
-        agent owns tool dispatch, and rewriting its payload would break the contract.
-        The repair result is emitted so that the client (or the agent) can act on it.
+        Returns the evidence summary and the list of repairs that may be applied
+        to the tool calls the client receives.
+
+        A repair that C3 produced, that validates against the client's original
+        schema and that only changed the *structure* of the call is applied to
+        the response (ADR 0001). The original text, the repaired text, both
+        hashes and the structured diff are recorded, so the change is auditable.
+        A call that could not be repaired is passed through unchanged.
 
         When the upstream delivered a tool call as *text* instead of as a
         structured call, that is recorded as well. The proxy does not turn it
@@ -347,19 +355,28 @@ class ProxyService:
             if text_call is not None:
                 summary["delivered_as_text"] = text_call
             self.emit("toolcall.validated", summary)
-            return summary
+            return summary, []
 
         original_request = result.original
         repairer = self.repairer_for(original_request)
         outcomes: list[dict[str, Any]] = []
+        repairs: list[dict[str, Any]] = []
         repaired = 0
         failed = 0
 
-        for call in calls:
+        for index, call in enumerate(calls):
             outcome = repairer.repair(call.name, call.arguments)
             if outcome.ok:
-                if outcome.changed:
+                if outcome.text_changed:
                     repaired += 1
+                    repairs.append(
+                        {
+                            "index": index,
+                            "id": call.id,
+                            "name": outcome.tool_name,
+                            "arguments": outcome.repaired_arguments_text,
+                        }
+                    )
             else:
                 failed += 1
                 self.ledger.record_error(
@@ -381,7 +398,31 @@ class ProxyService:
             "outcomes": outcomes,
         }
         self.emit("toolcall.validated", summary)
-        return summary
+        return summary, repairs
+
+    @staticmethod
+    def _apply_repairs(data: dict[str, Any], repairs: list[dict[str, Any]]) -> dict[str, Any]:
+        """Return the response body with the repaired tool calls applied."""
+        if not repairs:
+            return data
+        choices = data.get("choices") or []
+        for choice in choices:
+            message = choice.get("message") or {}
+            tool_calls = message.get("tool_calls") or []
+            for repair in repairs:
+                index = repair.get("index")
+                if not isinstance(index, int) or index >= len(tool_calls):
+                    continue
+                call = tool_calls[index]
+                if call.get("id") and repair.get("id") and call["id"] != repair["id"]:
+                    continue
+                function = call.get("function") or {}
+                function["arguments"] = repair.get("arguments", "")
+                call["function"] = function
+            message["tool_calls"] = tool_calls
+            choice["message"] = message
+        data["choices"] = choices
+        return data
 
     # ------------------------------------------------------------- endpoints
 

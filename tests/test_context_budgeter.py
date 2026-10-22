@@ -64,6 +64,24 @@ def test_system_prompt_is_unchanged() -> None:
     assert result.request.messages[0].content == messages[0].content
 
 
+def test_the_system_prompt_survives_the_omission_of_old_exchanges() -> None:
+    """Plan.md §6 C2: the system prompt must never be silently deleted.
+
+    The omission path is only reached when clipping and dedup were not enough,
+    so the test forces it: every turn is far too large to fit.
+    """
+    budgeter = make_budgeter(context_length=2048, keep_recent_turns=1)
+    messages = [system("SYSTEM PROMPT")]
+    for index in range(6):
+        messages.append(user(f"question {index} " + "x" * 1500))
+        messages.append(Message(role="assistant", content="answer " + "y" * 1500))
+    request = CanonicalRequest(model="m", messages=messages)
+    result = budgeter.apply(request)
+    assert any(event.rule_id == "C2.omit_old_exchange" for event in result.events)
+    assert result.request.messages[0].role == "system"
+    assert result.request.messages[0].content == "SYSTEM PROMPT"
+
+
 def test_result_stays_within_budget() -> None:
     """The output never exceeds the usable budget."""
     budgeter = make_budgeter(context_length=2048, keep_recent_turns=1)

@@ -387,29 +387,167 @@ the client. It needs a design decision, not a bug fix.
 implementation is incomplete. The next smallest step that would change the
 decision is:
 
-> **Make the interventions reachable in the measurement.** Extend the task suite with
-> tasks that actually create context pressure (a repository large enough that the
-> request exceeds 85% of the budget) and with a tool set larger than the C1 cap of
-> six, then re-run the dev split and check the *intervention coverage* counters
-> before looking at completion rates again.
+> **Make the interventions reachable in the measurement, and measure with a
+> reproducible configuration.** Extend the task suite with tasks that create the
+> conditions C1 and C3 target (a tool set larger than the cap, a model that
+> emits broken tool calls) and with tasks that produce the O/M/L/S failure
+> modes, then re-run the dev split and check the *intervention coverage*
+> counters before looking at completion rates again.
 
-If, with the interventions firing, the baseline failures are still dominated by W,
-then Plan.md §3's escape clause applies in full: revisit the product premise
-rather than deepening the proxy. If they are dominated by O/M/L/S, the G0 gate has a
-real chance and the +30 point question becomes measurable.
+Phase two did the second half of that (a reproducible configuration, C2 and C4
+firing) and the answer was still 0.0 points. If, with C1 and C3 also firing,
+the baseline failures are still dominated by W, then Plan.md §3's escape clause
+applies in full: revisit the product premise rather than deepening the proxy.
 
 Two smaller items belong next to it:
 
-* **Make the upstream reproducible or replace it.** Without a deterministic upstream
-  no completion-rate comparison on this hardware can exceed its own noise floor.
-  A backend with a fixed seed and deterministic batching (or a different runner) is
-  a prerequisite for the §11.2 condition, not an optional extra.
-* **Decide C4's escalation** (§11.1) and record the decision, so that the loop
-  guard is either an intervention or explicitly a detector.
+* **Decide C4's abort path.** The escalation is now a warning; whether the
+  proxy may also refuse a request (and break the client's API contract) is
+  still open and is a design decision, not a bug fix.
+* **Fix the upstream's empty completions or exclude them by construction.**
+  Half of the runs are lost to class R. A model that answers reliably, or a
+  task set that does not trigger it, is a precondition for measuring anything
+  at this sample size.
 
 ---
 
-## 13. Reproducing this document
+## 14. Phase two — making the comparison valid, and making the mechanisms act
+
+*(This section was added by the second phase; the sections above are the first
+phase and are left as they were measured.)*
+
+The first phase measured the gate and found it unmet, but the comparison was
+not yet sound: the upstream answered the same request differently, so the
+measured difference could not be separated from the upstream's noise. This phase
+did three things, in the order the review asked for.
+
+### 14.1 The source and the evidence are preserved
+
+The whole tree was untracked and the repository had **no commit at all**. The
+files that were about to be committed were checked (no credential-shaped
+content outside the redaction test fixtures, `scripts/check_for_secrets.py`),
+and the tree was committed as the first checkpoint:
+
+```
+91d725d  Checkpoint: v0.1 implementation plus the performance-gate audit
+```
+
+The commit message states the measured verdict, so the history itself cannot
+be read as a success claim.
+
+### 14.2 The upstream's reproducibility was measured properly
+
+The first phase concluded "the upstream is not reproducible". That was true
+but incomplete: the *sampling* was the cause, not the server.
+
+| probe | result |
+|---|---|
+| `probe_reproducibility.py` — the same multi-turn request four times | 4 different answers |
+| `probe_determinism.py` — 10 models × 3 settings × 5 rounds | default: 0/10 reproducible; `temperature=0`: 8/10; **`temperature=0` + `seed=42`: 10/10** |
+| `probe_seed_effect.py` — seeds 1/2/3 at `temperature=0` | stable per seed, but the three seeds give the *same* answer: the seed is accepted and ignored |
+| `probe_cache_state.py` — the same request, with other traffic interleaved | identical answer: the server-side prefix cache is **not** the cause |
+
+So a reproducible upstream configuration exists: greedy decoding plus a fixed
+seed. The benchmark now pins it (`--temperature 0`, `--seeds 1,2,3`) and records
+the temperature in the run manifest.
+
+### 14.3 The benchmark had a reproducibility leak of its own
+
+With the sampling pinned, the matrix still changed between two runs (12 of 36
+cells). The cause was in the harness, not the upstream: the pytest output
+contains a duration (`1 failed, 1 passed in 0.41s`), and that duration entered
+the model's context. A different duration is a different prompt, and a
+different prompt is a different answer.
+
+The agent now sanitises the volatile parts of a tool result (durations,
+timestamps, the absolute workspace path) before they reach the model. The
+result: **three independent runs of the whole matrix agree in 36 of 36 cells**
+(`scripts/compare_runs.py`).
+
+### 14.4 The mechanisms now fire where they are needed
+
+`tests/test_mechanism_firing.py` (18 tests) builds the condition each mechanism
+targets and checks that it fires, with the right result and the right
+invariants. Two of them found real defects:
+
+* **C2 silently deleted the system prompt.** When the budgeter had to omit old
+  exchanges, the slice it removed started at message 0, so the leading system
+  message went with it. Plan.md §6 C2 forbids exactly this ("do not silently
+  delete the system prompt"). Fixed, with a regression test
+  (`test_the_system_prompt_survives_the_omission_of_old_exchanges`).
+* **C3 counted cosmetic re-serialisations as repairs.** The model emitted
+  `{"path":"calc.py"}`; C3 re-serialised it as `{"path": "calc.py"}` and
+  reported a repair. A benchmark that counts such re-serialisations inflates
+  the intervention coverage with work that changed nothing. A repair is now only
+  reported and applied when the original arguments were **not usable as they
+  stood**.
+
+The two design decisions that the mechanisms needed are recorded:
+
+* [ADR 0001 — where a repaired tool call is applied](decisions/0001-c3-application-point.md):
+  a repaired call is what the client receives (Plan.md §4.3 "emit the
+  reconstructed tool call"), provided the original was not usable.
+* [ADR 0002 — what C4 does when it detects a loop](decisions/0002-c4-escalation.md):
+  the detection is derived from the request history, so the escalation is part
+  of the deterministic transformation and a replay reproduces it.
+
+### 14.5 The gate, measured again under valid conditions
+
+Raw: [`benchmarks/pinned-reproducible-matrix.json`](benchmarks/pinned-reproducible-matrix.json)
+(36 runs, 6 tasks × 3 seeds × 2 conditions, `temperature=0`, reproducible)
+
+| condition | passed | completion rate | 95% Wilson | failure classes |
+|---|---|---|---|---|
+| baseline | 3/9 | 0.333 | [0.121, 0.646] | M 2, **W 4** |
+| harness | 3/9 | 0.333 | [0.121, 0.646] | M 3, **W 3** |
+
+Paired difference **0.0 points**, exact McNemar **p = 1.0**. 18 of the 36 runs
+were lost to upstream empty completions (class R) and are reported separately.
+
+**Intervention coverage in this run** — the mechanisms were *not* idle this time:
+
+| mechanism | events |
+|---|---|
+| C1 tool selection | 0 (the agent sends three tools, the cap is six — the condition does not arise) |
+| C2 context compression | **12 events in 3 of 9 runs, 11 211 tokens saved** |
+| C3 tool repair | 0 repairs (9 invalid calls, none repairable) |
+| C4 loop detection / escalation | **3 detections, 3 escalations** (the warning reached the model) |
+
+| Gate | Verdict | Why |
+|---|---|---|
+| **G0 — problem fit** | **fail** | 2 of 6 eligible baseline failures (33 %) are attributable to O/M/L/S; the majority is **W** |
+| **G1 — demonstrated value** | **stop** | the held-out difference is **+0.0 points**; below +10 the premise is to be re-evaluated |
+| **Public release gate** | **fail** | 6 tasks; the gate needs 40 |
+| **§2 proxy overhead** | **met** | p50 1.18 ms, p95 5.60 ms |
+
+**The important change is not the numbers, it is their quality.** Before this
+phase the comparison could not separate the proxy from the upstream's noise.
+Now it can: the runs are reproducible, the interventions fire, and the answer
+is still **0.0 points**. The interventions changed the request (11 211 tokens
+of context removed, three loop escalations delivered) and the completion rate
+did not move.
+
+That is a much stronger statement than "the gate is unmet": on the failure modes
+this suite contains, the proxy's mechanisms are not the bottleneck. The
+bottleneck is the model's own behaviour (class W) and the upstream's own
+failure to answer (class R).
+
+### 14.6 What the two phases together say
+
+* The proxy works, is fast, is deterministic and is reproducible.
+* Its mechanisms are implemented, fire where the conditions arise and keep
+  their invariants.
+* On the six tasks measured, they do not change the completion rate.
+* The dominant failure classes are W (model behaviour) and R (upstream empty
+  completions) — not the classes the proxy addresses.
+
+The honest conclusion is therefore the one Plan.md §3 prepares for: the
+premise of the first experiment is not supported by its evidence, and the next
+step is to redefine the hypothesis and the target, not to add features.
+
+---
+
+## 15. Reproducing this document
 
 ```bash
 git clone <this repository> && cd Pocket-Harness
@@ -418,11 +556,19 @@ uv venv && uv pip install -e ".[dev]"
 .venv\Scripts\python.exe -m pytest -q
 .venv\Scripts\ruff.exe check src tests scripts
 .venv\Scripts\python.exe scripts\check_task_suite.py
+
+# the reproducible, pinned matrix (phase two)
 .venv\Scripts\python.exe -m pocket_harness.cli bench --config bench\bench-local.toml \
-    --suite repo --seeds 1,2,3 --out ./bench-results
+    --suite repo --seeds 1,2,3 --temperature 0 --out ./bench-results
 .venv\Scripts\python.exe scripts\summarise_run.py ./bench-results\bench-repo-raw.json
+
+# the upstream probes
+.venv\Scripts\python.exe scripts\probe_determinism.py http://127.0.0.1:11434/v1 5
+.venv\Scripts\python.exe scripts\probe_seed_effect.py http://127.0.0.1:11434/v1 3
+.venv\Scripts\python.exe scripts\probe_cache_state.py http://127.0.0.1:11434/v1 qwen2.5:7b-instruct 4
 ```
 
 The recorded raw records in [`benchmarks/`](benchmarks/) are the ones the tables
 above were computed from; `scripts/reclassify_records.py` reproduces the
-re-classification of the pre-lock matrix without spending new model calls.
+re-classification of the pre-lock matrix without spending new model calls, and
+`scripts/compare_runs.py` reproduces the reproducibility check.

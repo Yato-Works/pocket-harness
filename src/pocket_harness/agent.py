@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -79,6 +80,26 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 MAX_READ_CHARS = 8000
 #: How much of the test output is returned to the model.
 MAX_TEST_OUTPUT_CHARS = 4000
+
+#: Volatile values that must not enter the model's context: a duration in the
+#: test output changes from run to run and makes the whole conversation (and
+#: therefore the result) irreproducible. The paths are replaced for the same
+#: reason -- the worktree lives in a temporary directory whose name changes.
+_DURATION_RE = re.compile(r"\bin \d+(?:\.\d+)?s\b")
+_ISO_TIMESTAMP_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?\b")
+
+
+def sanitize_tool_output(text: str, workdir: Path | None = None) -> str:
+    """Replace the volatile parts of a tool result with stable placeholders."""
+    if not text:
+        return text
+    cleaned = _DURATION_RE.sub("in <duration>", text)
+    cleaned = _ISO_TIMESTAMP_RE.sub("<timestamp>", cleaned)
+    if workdir is not None:
+        for candidate in (str(workdir), str(workdir).replace("\\", "/")):
+            if candidate:
+                cleaned = cleaned.replace(candidate, "<workspace>")
+    return cleaned
 
 
 @dataclass
@@ -266,6 +287,8 @@ class ScriptedAgent:
         max_wall_seconds: int = 300,
         request_timeout: int = 300,
         list_workspace: bool = True,
+        temperature: float | None = 0.0,
+        seed: int | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
@@ -276,6 +299,11 @@ class ScriptedAgent:
         self.max_wall_seconds = max_wall_seconds
         self.request_timeout = request_timeout
         self.list_workspace = list_workspace
+        #: The sampling settings are part of the comparison conditions
+        #: (Plan.md §11.2): they are identical in both conditions and pinned so
+        #: that the upstream answers the same request the same way.
+        self.temperature = temperature
+        self.seed = seed
         self.schemas = {
             tool["function"]["name"]: tool["function"]["parameters"] for tool in TOOL_SCHEMAS
         }
@@ -327,15 +355,20 @@ class ScriptedAgent:
                 break
 
             request_started = time.monotonic()
+            payload: dict[str, Any] = {
+                "model": self.model,
+                "messages": messages,
+                "tools": TOOL_SCHEMAS,
+                "max_tokens": 1024,
+            }
+            if self.temperature is not None:
+                payload["temperature"] = self.temperature
+            if self.seed is not None:
+                payload["seed"] = self.seed
             try:
                 response = await self.client.post(
                     f"{self.base_url}/chat/completions",
-                    json={
-                        "model": self.model,
-                        "messages": messages,
-                        "tools": TOOL_SCHEMAS,
-                        "max_tokens": 1024,
-                    },
+                    json=payload,
                     timeout=self.request_timeout,
                 )
             except httpx.HTTPError as exc:
@@ -422,7 +455,7 @@ class ScriptedAgent:
                         "role": "tool",
                         "tool_call_id": call.get("id", ""),
                         "name": name,
-                        "content": outcome.content,
+                        "content": sanitize_tool_output(outcome.content, self.workdir),
                     }
                 )
 

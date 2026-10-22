@@ -74,6 +74,11 @@ class RepairOutcome:
     repaired_hash: str = ""
     original_text_hash: str = ""
     changed: bool = False
+    #: True when the *text* of the arguments changed, even if the parsed
+    #: arguments are the same (a re-serialisation after tolerant parsing).
+    #: This is the flag that decides whether the repaired text is applied to
+    #: the tool call the client receives (ADR 0001).
+    text_changed: bool = False
     reasons: list[str] = field(default_factory=list)
     diff: dict[str, Any] = field(default_factory=dict)
     error_class: str | None = None
@@ -84,6 +89,7 @@ class RepairOutcome:
             "ok": self.ok,
             "tool": self.tool_name,
             "changed": self.changed,
+            "text_changed": self.text_changed,
             "original_sha256": self.original_hash,
             "repaired_sha256": self.repaired_hash,
             "original_text_sha256": self.original_text_hash,
@@ -213,6 +219,13 @@ class ToolCallRepairer:
         )
 
         # 1) parse
+        # The strict parse tells us whether the text the model produced was
+        # already usable. Only a call that was *not* usable is a repair: a
+        # re-serialisation of already valid JSON changes nothing for the client.
+        try:
+            strict_arguments = json.loads(original_text.strip()) if original_text.strip() else {}
+        except json.JSONDecodeError:
+            strict_arguments = None
         try:
             arguments = parse_arguments(original_text)
         except RepairFailure as exc:
@@ -269,6 +282,19 @@ class ToolCallRepairer:
         outcome.repaired_arguments_text = json.dumps(arguments, ensure_ascii=False, sort_keys=True)
         outcome.repaired_hash = hash_obj({"name": canonical, "arguments": arguments})
         outcome.changed = outcome.repaired_hash != outcome.original_hash
+        # A repair is only *applied* to the client's tool call when the original
+        # was not usable as it stood (ADR 0001). A pure re-serialisation of
+        # already valid JSON is not a repair and must not be counted as one.
+        original_was_usable = (
+            isinstance(strict_arguments, dict)
+            and not self._validate(canonical, strict_arguments)
+        )
+        outcome.text_changed = (
+            outcome.repaired_arguments_text != outcome.original_arguments_text
+            and not original_was_usable
+        )
+        if not original_was_usable and not outcome.text_changed:
+            outcome.reasons.append("the original arguments were already usable")
         outcome.diff = self._build_diff(arguments, original_text)
         return outcome
 

@@ -375,8 +375,16 @@ class ContextBudgeter:
                 # The first complete exchange does not lie entirely before the
                 # protected window, so nothing can be dropped safely.
                 break
-            dropped = working[:drop_end]
-            working = working[drop_end:]
+            # The leading system messages are never part of an exchange and are
+            # never dropped: Plan.md §6 C2 forbids silently deleting the system
+            # prompt.
+            system_count = 0
+            while system_count < len(working) and working[system_count].role == "system":
+                system_count += 1
+            if system_count >= drop_end:
+                break
+            dropped = working[system_count:drop_end]
+            working = working[:system_count] + working[drop_end:]
             result.omitted_turns += len(dropped)
             result.events.append(
                 CompressionEvent(

@@ -210,6 +210,7 @@ async def _run_agent(
     seed: int,
     capture: str,
     state_root: Path | None,
+    temperature: float | None = 0.0,
 ) -> tuple[AgentRun, dict[str, Any]]:
     """Run one agent against one endpoint and return the run plus the proxy trace."""
     proxy_events: list[dict[str, Any]] = []
@@ -240,6 +241,8 @@ async def _run_agent(
         max_steps=task.max_steps,
         max_wall_seconds=task.max_wall_seconds,
         request_timeout=config.upstream.timeout_seconds,
+        temperature=temperature,
+        seed=seed,
     )
     try:
         run = await agent.run(task.prompt)
@@ -260,6 +263,7 @@ def _proxy_metrics(events: list[dict[str, Any]]) -> dict[str, Any]:
     compression_events = 0
     bytes_saved = 0
     selection_events = 0
+    c4_warnings = 0
     blob_refs = 0
     loop_events = 0
     for event in events:
@@ -275,8 +279,11 @@ def _proxy_metrics(events: list[dict[str, Any]]) -> dict[str, Any]:
                 compression_events += 1
                 bytes_saved += before - after
             for rule in payload.get("rules") or []:
-                if str(rule.get("id", "")).startswith("C1"):
+                rule_id = str(rule.get("id", ""))
+                if rule_id.startswith("C1"):
                     selection_events += 1
+                elif rule_id.startswith("C4"):
+                    c4_warnings += 1
         elif name == "toolcall.validated":
             checked += int(payload.get("checked") or 0)
             repaired += int(payload.get("repaired") or 0)
@@ -294,6 +301,7 @@ def _proxy_metrics(events: list[dict[str, Any]]) -> dict[str, Any]:
         "compression_events": compression_events,
         "tokens_saved_by_compression": bytes_saved,
         "tool_selection_events": selection_events,
+        "c4_escalations": c4_warnings,
         "blob_references": blob_refs,
         "loop_events": loop_events,
     }
@@ -310,6 +318,7 @@ async def run_repo_benchmark(
     output_dir: Path | None = None,
     capture: str = "metadata",
     keep_worktrees: bool = False,
+    temperature: float | None = 0.0,
 ) -> dict[str, Any]:
     """Run the repository benchmark and return the raw records plus the summary."""
     tasks = load_repo_tasks(task_dir)
@@ -343,13 +352,21 @@ async def run_repo_benchmark(
                             worktree_root,
                             capture=capture,
                             keep_worktrees=keep_worktrees,
+                            temperature=temperature,
                         )
                     )
     finally:
         if not keep_worktrees:
             shutil.rmtree(worktree_root, ignore_errors=True)
 
-    summary = summarize(records, config, seeds=seeds, conditions=conditions, started=started)
+    summary = summarize(
+        records,
+        config,
+        seeds=seeds,
+        conditions=conditions,
+        started=started,
+        temperature=temperature,
+    )
     summary["task_suite_hash"] = suite_hash(tasks)
     summary["tasks"] = [t.to_dict() for t in tasks]
     raw_path = ""
@@ -361,7 +378,9 @@ async def run_repo_benchmark(
                 {
                     "pipeline_version": PIPELINE_VERSION,
                     "config_hash": config.config_hash(),
-                    "manifest": build_manifest(config, seeds=seeds, conditions=conditions),
+                    "manifest": build_manifest(
+                        config, seeds=seeds, conditions=conditions, temperature=temperature
+                    ),
                     "records": records,
                 },
                 indent=2,
@@ -384,6 +403,7 @@ async def _run_one(
     *,
     capture: str,
     keep_worktrees: bool,
+    temperature: float | None = 0.0,
 ) -> dict[str, Any]:
     """Run one (task, seed, condition) combination and return its record."""
     worktree = worktree_root / f"{task.task_id}-{condition}-{seed}"
@@ -408,7 +428,14 @@ async def _run_one(
     run_started = time.monotonic()
     try:
         run, proxy = await _run_agent(
-            config, task, condition, worktree, seed=seed, capture=capture, state_root=state_root
+            config,
+            task,
+            condition,
+            worktree,
+            seed=seed,
+            capture=capture,
+            state_root=state_root,
+            temperature=temperature,
         )
     except Exception as exc:  # noqa: BLE001 - an infrastructure failure is recorded, not raised
         record["eligible"] = False
@@ -477,6 +504,7 @@ def build_manifest(
     *,
     seeds: list[int],
     conditions: list[str],
+    temperature: float | None = 0.0,
 ) -> dict[str, Any]:
     """Build the run manifest required by Plan.md §11.2."""
     manifest: dict[str, Any] = {
@@ -488,6 +516,7 @@ def build_manifest(
         "context_length": config.effective_context_length(),
         "seeds": seeds,
         "conditions": conditions,
+        "temperature": temperature,
         "python": platform.python_version(),
         "platform": platform.platform(),
         "cpu_count": _cpu_count(),
@@ -567,6 +596,7 @@ def summarize(
     seeds: list[int],
     conditions: list[str],
     started: float,
+    temperature: float | None = 0.0,
 ) -> dict[str, Any]:
     """Summarize the raw records the way Plan.md §11.4 requires."""
     eligible = [r for r in records if r.get("eligible", True)]
@@ -629,6 +659,7 @@ def summarize(
         "model": config.upstream.model,
         "seeds": seeds,
         "conditions": conditions,
+        "temperature": temperature,
         "runs": len(records),
         "eligible_runs": len(eligible),
         "excluded_runs": [
@@ -670,6 +701,7 @@ def _coverage(records: list[dict[str, Any]]) -> dict[str, Any]:
         "runs_with_loop_detection": sum(1 for p in proxy if p.get("loop_events")),
         "compression_events": sum(int(p.get("compression_events") or 0) for p in proxy),
         "tool_selection_events": sum(int(p.get("tool_selection_events") or 0) for p in proxy),
+        "c4_escalations": sum(int(p.get("c4_escalations") or 0) for p in proxy),
         "tool_calls_repaired": sum(int(p.get("tool_calls_repaired") or 0) for p in proxy),
         "invalid_tool_calls_after_c3": sum(
             int(p.get("invalid_tool_calls_after_c3") or 0) for p in proxy

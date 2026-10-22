@@ -1,0 +1,10 @@
+{"model": "goldstate-coder:latest", "stable_per_seed": true, "distinct_answers_across_seeds": 1, "per_seed_distinct": {"1": 1, "2": 1, "3": 1}}
+{"model": "qwen2.5:7b-instruct", "stable_per_seed": true, "distinct_answers_across_seeds": 1, "per_seed_distinct": {"1": 1, "2": 1, "3": 1}}
+{"model": "gpt-4o:latest", "stable_per_seed": true, "distinct_answers_across_seeds": 1, "per_seed_distinct": {"1": 1, "2": 1, "3": 1}}
+{"model": "qwen2.5:7b-instruct-q4_K_M", "stable_per_seed": true, "distinct_answers_across_seeds": 1, "per_seed_distinct": {"1": 1, "2": 1, "3": 1}}
+{"model": "llama3.1:8b-instruct-q4_K_M", "stable_per_seed": true, "distinct_answers_across_seeds": 1, "per_seed_distinct": {"1": 1, "2": 1, "3": 1}}
+{"model": "deepseek-r1:1.5b", "stable_per_seed": false, "distinct_answers_across_seeds": 1, "per_seed_distinct": {"1": 2, "2": 1, "3": 1}}
+{"model": "phi4-mini:latest", "stable_per_seed": false, "distinct_answers_across_seeds": 2, "per_seed_distinct": {"1": 2, "2": 1, "3": 1}}
+{"model": "qwen2.5-coder:7b", "stable_per_seed": true, "distinct_answers_across_seeds": 1, "per_seed_distinct": {"1": 1, "2": 1, "3": 1}}
+{"model": "qwen3:4b", "stable_per_seed": false, "distinct_answers_across_seeds": 2, "per_seed_distinct": {"1": 2, "2": 1, "3": 1}}
+{"model": "qwen2.5:1.5b", "stable_per_seed": false, "distinct_answers_across_seeds": 2, "per_seed_distinct": {"1": 2, "2": 1, "3": 1}}

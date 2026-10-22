@@ -217,3 +217,70 @@ class LoopGuard:
             "will not make progress."
         )
         return "\n".join(parts)
+
+
+def history_fingerprints(messages: Any) -> list[str]:
+    """Return the fingerprints of the tool calls in a request history.
+
+    The history is the client's own message list: every assistant message with
+    tool calls contributes one fingerprint per call, oldest first. The result is
+    a pure function of the request, which is what makes the C4 escalation
+    reproducible (ADR 0002).
+    """
+    fingerprints: list[str] = []
+    for message in messages or []:
+        calls = getattr(message, "tool_calls", None)
+        if not calls:
+            continue
+        for call in calls:
+            fingerprints.append(call_fingerprint(call.name, call.arguments_text))
+    return fingerprints
+
+
+def detect_from_history(
+    messages: Any,
+    *,
+    repeated_call_threshold: int = 3,
+    detect_oscillation: bool = True,
+) -> list[LoopEvent]:
+    """Detect a repeated call or an oscillation from the request history alone.
+
+    This is the request-derived half of C4. It uses the same rules as
+    :meth:`LoopGuard.observe_call`, so the two agree on what a loop is; the
+    difference is only where the state comes from.
+    """
+    fingerprints = history_fingerprints(messages)
+    if not fingerprints:
+        return []
+    events: list[LoopEvent] = []
+    threshold = max(2, repeated_call_threshold)
+
+    if len(fingerprints) >= threshold:
+        recent = fingerprints[-threshold:]
+        if len(set(recent)) == 1:
+            events.append(
+                LoopEvent(
+                    signal=LoopSignal.REPEATED_CALL,
+                    detail=(
+                        f"the same tool call was repeated {threshold} times consecutively"
+                    ),
+                    step=len(fingerprints),
+                    fingerprint=recent[-1],
+                    action="warn",
+                )
+            )
+
+    if detect_oscillation and len(fingerprints) >= 4:
+        pattern = fingerprints[-4:]
+        if pattern[0] == pattern[2] and pattern[1] == pattern[3]:
+            events.append(
+                LoopEvent(
+                    signal=LoopSignal.OSCILLATION,
+                    detail="an A-B-A-B oscillation between two call fingerprints was detected",
+                    step=len(fingerprints),
+                    fingerprint=pattern[-1],
+                    action="warn",
+                )
+            )
+
+    return events

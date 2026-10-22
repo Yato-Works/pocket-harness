@@ -13,6 +13,7 @@ from typing import Any
 
 from pocket_harness.canonical import CanonicalRequest
 from pocket_harness.components.context_budgeter import BudgetResult, ContextBudgeter
+from pocket_harness.components.loop_guard import LoopGuard, detect_from_history
 from pocket_harness.components.router import ResolvedRoute, Router
 from pocket_harness.components.tool_selector import ToolSelection, ToolSelector
 from pocket_harness.config import Config
@@ -83,6 +84,12 @@ class Pipeline:
             aliases=config.tools.tool_aliases,
         )
         self.router = Router(config)
+        self._loop_guard = LoopGuard(
+            repeated_call_threshold=config.loop_guard.repeated_call_threshold,
+            max_steps_per_task=config.loop_guard.max_steps_per_task,
+            max_wall_seconds=config.loop_guard.max_wall_seconds,
+            detect_oscillation=config.loop_guard.detect_oscillation,
+        )
         self._budgeter = ContextBudgeter(
             context_length=config.effective_context_length(),
             start_at=config.context.start_at,
@@ -161,6 +168,27 @@ class Pipeline:
             )
         warnings.extend(selection.warnings)
 
+        # --- C4: loop guard --------------------------------------------------
+        # The detection is derived from the request history, so the escalation is
+        # a deterministic part of the transformation and a replay reproduces it
+        # (ADR 0002). It runs before C2 so that the context budgeter accounts
+        # for the message the guard adds.
+        loop_events = detect_from_history(
+            current.messages,
+            repeated_call_threshold=self.config.loop_guard.repeated_call_threshold,
+            detect_oscillation=self.config.loop_guard.detect_oscillation,
+        )
+        if loop_events:
+            warning = self._loop_guard.warning_text(loop_events)
+            current = _with_appended_message(current, warning)
+            rules.append(
+                {
+                    "id": "C4.repeat_warning",
+                    "reason": "the request history shows a repeated tool call",
+                    "signals": [event.signal.value for event in loop_events],
+                }
+            )
+
         # --- C2: context budget ---------------------------------------------
         budget = self._budgeter.apply(current)
         current = budget.request
@@ -190,6 +218,20 @@ def _with_tools(request: CanonicalRequest, tools: list[Any]) -> CanonicalRequest
     """Return a copy of ``request`` with a different tool list."""
     data = request.model_dump()
     data["tools"] = tools
+    return CanonicalRequest(**data)
+
+
+def _with_appended_message(request: CanonicalRequest, content: str) -> CanonicalRequest:
+    """Return a copy of ``request`` with one deterministic message appended.
+
+    The message is a ``user`` message: the system prompt stays untouched
+    (Plan.md §6 C2 invariant) and the tool-call/result pairing of the
+    conversation is not disturbed.
+    """
+    data = request.model_dump()
+    messages = list(data.get("messages") or [])
+    messages.append({"role": "user", "content": content})
+    data["messages"] = messages
     return CanonicalRequest(**data)
 
 

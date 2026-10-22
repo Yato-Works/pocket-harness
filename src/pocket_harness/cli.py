@@ -146,6 +146,7 @@ def _cmd_bench_repo(args: argparse.Namespace) -> int:
             output_dir=Path(args.out) if args.out else None,
             capture=args.capture or "metadata",
             keep_worktrees=args.keep_worktrees,
+            temperature=args.temperature,
         )
     )
     summary = dict(result["summary"])
@@ -369,6 +370,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--require-gates",
         action="store_true",
         help="exit non-zero when a performance gate is not met",
+    )
+    p_bench.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="sampling temperature sent to the upstream (0 means greedy and reproducible)",
     )
     p_bench.add_argument(
         "--keep-worktrees",

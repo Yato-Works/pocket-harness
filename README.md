@@ -178,12 +178,32 @@ for the gates that must pass before any performance claim is made.
 | C1 | Tool selector | Exposes a smaller, deterministic subset of the client's tools. |
 | C2 | Context budgeter | Compresses tool output and old turns to fit the context window. |
 | C3 | Tool-call repair | Validates a model tool call against the **original** client schema and repairs it at the syntax level only. |
-| C4 | Loop guard | Detects repeated calls, oscillation, and step/wall-clock overruns. |
+| C4 | Loop guard | Detects repeated calls, oscillation, and step/wall-clock overruns, and escalates with a deterministic warning. |
 | C6 | Router | Resolves the request to an upstream route. |
 
 Every step is a pure function of `(input, configuration, pipeline version)`. No network
 call, no LLM, and no wall-clock-dependent decision influences a transformed request —
 which is exactly what makes `replay` able to reproduce a request hash.
+
+### Do the mechanisms actually fire?
+
+A mechanism that never fires cannot improve anything, and its absence in a
+benchmark says nothing about the mechanism. `tests/test_mechanism_firing.py`
+builds the condition each mechanism targets and checks that it fires, with the
+right result and the right invariants:
+
+| Mechanism | The condition that must make it fire | What is asserted |
+|---|---|---|
+| C1 | more tools than the cap | the forwarded request exposes at most `max_non_pinned` + the pinned tools, the `C1.select` rule is recorded, the selection is sticky, and a call to a *hidden* tool is still validated |
+| C2 | a request above 85 % of the budget | the request is compressed, the system prompt survives verbatim, tool-call/result pairs stay valid, applying the policy twice is idempotent, and the result stays inside the budget |
+| C3 | a malformed tool call | the client receives the repaired arguments, an unrepairable call is passed through untouched, a destructive tool is never renamed, and a call that was already usable is left alone |
+| C4 | a repeated call or an A-B-A-B oscillation | the escalation is appended to the next request, the `C4.repeat_warning` rule is recorded, the model/temperature/seed are never touched, and the same input yields the same hash |
+
+Two design decisions that these tests depend on are recorded in
+[`docs/decisions/`](docs/decisions/):
+
+* [ADR 0001 — where a repaired tool call is applied](docs/decisions/0001-c3-application-point.md)
+* [ADR 0002 — what C4 does when it detects a loop](docs/decisions/0002-c4-escalation.md)
 
 ## Evidence and state
 
@@ -353,17 +373,32 @@ pocket-harness doctor --upstream http://127.0.0.1:11434/v1 --model <your-model>
 python scripts/probe_upstream.py http://127.0.0.1:11434 3   # every model, 3 probes each
 ```
 
-### The upstream is not reproducible
+### The upstream is not reproducible — unless it is pinned
 
-Ollama 0.40.6 accepts a `seed` field but **ignores it**: the same request with
-`seed=42` and `seed=7` produced byte-identical answers. More importantly, the
+Ollama 0.40.6 accepts a `seed` field but **ignores** it: the same request with
+`seed=42` and with `seed=7` produced byte-identical answers. More importantly, the
 **same request sent repeatedly produces different answers** — four identical
 multi-turn requests returned one structured tool call and three different text
-answers (`scripts/probe_reproducibility.py`). The three "seeds" of the benchmark
-are therefore three samples of a noisy process, not three reproducible runs, and
-the plan's seeded-reproducibility requirement (§11.2) cannot be met on this
-upstream. The benchmark reports this limitation instead of claiming seeded
-reproducibility.
+answers (`scripts/probe_reproducibility.py`).
+
+The cause turned out to be the *sampling*, not the server
+(`scripts/probe_determinism.py`, 5 rounds per model and setting):
+
+| setting | reproducible models (of 10 tags) |
+|---|---|
+| default sampling | 0 |
+| `temperature = 0` | 8 |
+| **`temperature = 0` + `seed = 42`** | **10** |
+
+The seed is accepted and ignored: with greedy decoding the three predeclared
+seeds produce the *same* answer, so they are three reproducible replicates and
+not three different samples. The upstream's server-side prefix cache is *not*
+the cause — the same answer comes back even when other traffic is interleaved
+(`scripts/probe_cache_state.py`).
+
+The benchmark therefore pins `temperature = 0` and the seed
+(`bench --temperature 0 --seeds 1,2,3`) and reports the limitation instead of
+claiming seeded reproducibility.
 
 ## Development
 
@@ -415,20 +450,28 @@ statistics, the repository benchmark and the gate evaluation.
 
 **Implemented and demonstrated against a real Ollama 0.40.6 upstream** —
 `doctor` passes all six checks; the `serve → request → status → report → replay`
-chain completes with a matching replay hash; the proxy-only overhead is p50 0.9 ms /
-p95 4.0 ms, well inside the plan's p95 ≤ 50 ms target.
+chain completes with a matching replay hash; the proxy-only overhead is p50 1.2 ms /
+p95 5.6 ms, well inside the plan's p95 ≤ 50 ms target; the benchmark matrix is
+**fully reproducible** (36/36 cells identical across three independent runs) once
+the sampling is pinned and the volatile parts of the tool output are removed.
 
 **Implemented but *not* demonstrated** — the performance gates of `Plan.md` §11.5.
-G0 and G1 were measured and **both fail**. The measured reason is that the local
-baseline failures are dominated by class **W** (wrong semantic edit, constraint
-violation, the model not acting) rather than by O/M/L/S, and that the upstream is
-not reproducible, so a six-task suite cannot resolve the effect the gate asks for.
-See [`docs/PERFORMANCE-GATE-AUDIT.md`](docs/PERFORMANCE-GATE-AUDIT.md) for the
+G0 and G1 were measured and **both fail**, now under conditions that are
+reproducible and in which the mechanisms actually fire (C2 compressed 11 211
+tokens, C4 escalated three times). The completion difference is **0.0 points**:
+the interventions fired and changed nothing. The measured reason is that the
+local baseline failures are dominated by class **W** (wrong semantic edit,
+constraint violation, the model not acting) rather than by O/M/L/S, and that half
+of the runs are lost to upstream empty completions. See
+[`docs/PERFORMANCE-GATE-AUDIT.md`](docs/PERFORMANCE-GATE-AUDIT.md) for the
 numbers, the raw records and the reasoning.
 
 Still open:
 
 - The §11.1 task suite has 6 tasks, not 20, and the public release gate needs 40.
+- C1 never fires on this suite (the agent sends three tools, the cap is six) and
+  C3 never has anything to repair (9 invalid calls, 0 repairable).
 - No MoE model, no LM Studio, no Anthropic Messages API / Claude Code adapter.
-- The seeded-reproducibility requirement cannot be met on Ollama 0.40.6, which
-  ignores `seed` and is not deterministic for a repeated request.
+- The seeded-reproducibility requirement can only be met in the *reproducibility*
+  sense: the seed is accepted and ignored, so the three seeds are three
+  identical replicates.
