@@ -1,0 +1,10 @@
+{
+  "task_id": "dev-03-rename-symbol",
+  "split": "dev",
+  "description": "Symbol rename: compute_total must become compute_sum.",
+  "prompt": "The project does not import cleanly because a function was renamed. Rename the function in the source so that the import in the test works and all tests pass. Do not modify the tests.",
+  "test_command": ["{python}", "-m", "pytest", "-q"],
+  "forbidden_paths": ["tests/"],
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

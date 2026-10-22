@@ -1,0 +1,10 @@
+{
+  "task_id": "dev-01-fix-add",
+  "split": "dev",
+  "description": "Failing-test repair: the add() helper returns a difference instead of a sum.",
+  "prompt": "The project has one failing test. Run the test suite, find out what is wrong, and fix the source code so that every test passes. Do not modify the tests.",
+  "test_command": ["{python}", "-m", "pytest", "-q"],
+  "forbidden_paths": ["tests/"],
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

@@ -1,0 +1,25 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python build and cache artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Test and tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local Pocket Harness state and scratch directories
+.e2e/
+.e2e-real/
+*.sqlite
+
+# Local configuration written by ``pocket-harness init``
+pocket.toml

@@ -1,0 +1,10 @@
+{
+  "task_id": "heldout-01-add-palindrome",
+  "split": "held-out",
+  "description": "Small feature plus tests: add an is_palindrome() helper.",
+  "prompt": "Add a new function is_palindrome(text) to text_utils.py. It must return True when the text reads the same forwards and backwards, ignoring case and surrounding whitespace, and False otherwise. The empty string is a palindrome. Do not modify the tests.",
+  "test_command": ["{python}", "-m", "pytest", "-q"],
+  "forbidden_paths": ["tests/"],
+  "max_steps": 14,
+  "max_wall_seconds": 300
+}

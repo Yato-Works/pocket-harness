@@ -1,0 +1,63 @@
+# The exact configuration used for the repository benchmark on this machine.
+#
+# The model, the context window and every other value that can change a
+# transformation outcome participate in the configuration hash that is written
+# into the run manifest (Plan.md §11.2).
+
+[server]
+host = "127.0.0.1"
+port = 8787
+
+[state]
+root = "~/.pocket"
+
+[upstream]
+kind = "openai-compatible"
+base_url = "http://127.0.0.1:11434/v1"
+model = "qwen2.5:7b-instruct"
+# The runtime context window observed for this model with Ollama 0.40.6
+# (`ollama ps` reported CONTEXT 8192), not the 32768 of the model card.
+context_length = 8192
+supports_count_endpoint = false
+unsupported_fields = []
+optional_fields = []
+
+[client]
+profile = "cline"
+pinned_tools = []
+destructive_tools = []
+
+[context]
+start_at = 0.85
+target_at = 0.70
+keep_recent_turns = 4
+system_prompt_mutation = false
+reserved_output_tokens = 1024
+safety_margin_tokens = 256
+max_tool_output_bytes = 8192
+
+[tools]
+max_non_pinned = 6
+sticky_unused_turns = 5
+fuzzy_tool_name_repair = false
+max_description_chars = 200
+
+[repair]
+max_corrective_retries_per_request = 1
+max_corrective_retries_per_task = 3
+allow_fuzzy_tool_name = false
+allow_schema_defaults = false
+
+[loop_guard]
+repeated_call_threshold = 3
+max_steps_per_task = 40
+max_wall_seconds = 1800
+detect_oscillation = true
+
+[logging]
+capture = "metadata"
+telemetry = false
+
+[routing]
+enabled = false
+allow_paid_fallback = false

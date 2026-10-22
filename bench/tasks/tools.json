@@ -1,0 +1,73 @@
+{
+  "set": "tools",
+  "description": "Tasks that require the model to emit a tool call. Success is checked by the presence of the required tool name.",
+  "tasks": [
+    {
+      "task_id": "tools-01-read-file",
+      "prompt": "Read the file 'src/main.py' using the read_file tool. Do not answer in text; only make the tool call.",
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "description": "Read a file from the workspace.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "path": {"type": "string", "description": "Path relative to the workspace root."}
+              },
+              "required": ["path"]
+            }
+          }
+        }
+      ],
+      "expect_tool": "read_file",
+      "max_tokens": 128
+    },
+    {
+      "task_id": "tools-02-search",
+      "prompt": "Search the codebase for the symbol 'ToolSelector' using the search_code tool. Do not answer in text; only make the tool call.",
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "search_code",
+            "description": "Search the codebase for a symbol or a regular expression.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "query": {"type": "string", "description": "Symbol or regular expression to search for."},
+                "glob": {"type": "string", "description": "Optional file glob filter."}
+              },
+              "required": ["query"]
+            }
+          }
+        }
+      ],
+      "expect_tool": "search_code",
+      "max_tokens": 128
+    },
+    {
+      "task_id": "tools-03-list-dir",
+      "prompt": "List the files in the 'src' directory using the list_files tool. Do not answer in text; only make the tool call.",
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "list_files",
+            "description": "List the files in a directory.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "path": {"type": "string", "description": "Directory path relative to the workspace root."}
+              },
+              "required": ["path"]
+            }
+          }
+        }
+      ],
+      "expect_tool": "list_files",
+      "max_tokens": 128
+    }
+  ]
+}

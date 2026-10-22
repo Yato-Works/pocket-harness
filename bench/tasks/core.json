@@ -1,0 +1,36 @@
+{
+  "set": "core",
+  "description": "Deterministic single-turn tasks. Success is checked by exact match, substring, or a required tool call. No LLM judge.",
+  "tasks": [
+    {
+      "task_id": "core-01-reverse-string",
+      "prompt": "Reverse the string 'pocket-harness' and output only the reversed string, with no other text.",
+      "expect_exact": "ssrenah-ketcop",
+      "max_tokens": 32
+    },
+    {
+      "task_id": "core-02-add-numbers",
+      "prompt": "Compute 137 + 288. Output only the number.",
+      "expect_substring": "425",
+      "max_tokens": 32
+    },
+    {
+      "task_id": "core-03-json-object",
+      "prompt": "Output a JSON object with the key \"status\" set to \"ok\". Output only the JSON object.",
+      "expect_substring": "\"status\"",
+      "max_tokens": 48
+    },
+    {
+      "task_id": "core-04-count-words",
+      "prompt": "How many words are in the sentence: 'The quick brown fox jumps over the lazy dog'? Output only the number.",
+      "expect_substring": "9",
+      "max_tokens": 32
+    },
+    {
+      "task_id": "core-05-capitalize",
+      "prompt": "Convert the string 'local-first inference' to uppercase. Output only the uppercase string.",
+      "expect_substring": "LOCAL-FIRST INFERENCE",
+      "max_tokens": 32
+    }
+  ]
+}
