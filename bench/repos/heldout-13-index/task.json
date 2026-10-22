@@ -1,0 +1,18 @@
+{
+  "task_id": "heldout-13-index",
+  "split": "held-out",
+  "category": "failing-test repair",
+  "description": "Failing-test repair: second() returns the wrong element.",
+  "prompt": "The tests in this project fail. Read the source, work out what is wrong with second(), and fix it so that every test passes. Do not modify the tests.",
+  "test_command": [
+    "{python}",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "forbidden_paths": [
+    "tests/"
+  ],
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

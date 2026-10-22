@@ -1,0 +1,5 @@
+{
+  "file": "labels.py",
+  "old": "    for index in range(len(values)):\n        values[index] = prefix + values[index]\n    return values",
+  "new": "    return [prefix + value for value in values]"
+}

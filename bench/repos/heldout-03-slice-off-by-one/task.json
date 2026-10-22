@@ -14,5 +14,6 @@
   ],
   "max_steps": 12,
   "max_wall_seconds": 300,
-  "note": "inspected during development; not usable as held-out data any more"
+  "note": "inspected during development; not usable as held-out data any more",
+  "category": "failing-test repair"
 }

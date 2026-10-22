@@ -1,0 +1,5 @@
+{
+  "file": "limits.py",
+  "old": "MAX_ITEMS = 5",
+  "new": "MAX_ITEMS = 50"
+}

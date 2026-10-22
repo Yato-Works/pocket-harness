@@ -1,0 +1,5 @@
+{
+  "file": "range_check.py",
+  "old": "    return low < value < high",
+  "new": "    return low <= value <= high"
+}

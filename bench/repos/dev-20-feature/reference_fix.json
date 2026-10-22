@@ -1,0 +1,5 @@
+{
+  "file": "text_utils.py",
+  "old": null,
+  "new": "def titlecase(text):\n    \"\"\"Return the text in title case.\"\"\"\n    return normalize(text).title()\n"
+}

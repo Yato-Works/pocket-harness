@@ -3,8 +3,16 @@
   "split": "dev",
   "description": "Configuration bug repair: a timeout is configured in seconds but used as milliseconds.",
   "prompt": "One test in this project fails. Read the code, work out which value is wrong, and fix it so that all tests pass. Do not change the tests.",
-  "test_command": ["{python}", "-m", "pytest", "-q"],
-  "forbidden_paths": ["tests/"],
+  "test_command": [
+    "{python}",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "forbidden_paths": [
+    "tests/"
+  ],
   "max_steps": 12,
-  "max_wall_seconds": 300
+  "max_wall_seconds": 300,
+  "category": "configuration bug repair"
 }

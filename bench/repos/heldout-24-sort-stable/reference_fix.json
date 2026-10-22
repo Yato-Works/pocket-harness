@@ -1,0 +1,5 @@
+{
+  "file": "ordered.py",
+  "old": "    return sorted(words, key=len, reverse=True)",
+  "new": "    return sorted(words, key=len)"
+}

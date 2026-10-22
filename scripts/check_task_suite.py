@@ -1,20 +1,29 @@
-"""Verify that every repository task is broken before the fix and solvable."""
+"""Verify that every repository task is broken before the fix and solved after.
+
+The reference edit comes from ``reference_fix.json`` next to the task (for the
+generated tasks) or from the built-in table (for the hand written ones).
+"""
 
 from __future__ import annotations
 
+import json
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(ROOT / "src"))
+ROOT = Path(__file__).resolve().parent.parent
+TASKS = ROOT / "bench" / "repos"
 
-from pocket_harness.repo_bench import check_task, load_repo_tasks  # noqa: E402
-
+#: The reference edits of the hand written tasks.
 FIXES = {
     "dev-01-fix-add": ("calc.py", "return a - b", "return a + b"),
-    "dev-02-config-timeout": ("settings.py", "REQUEST_TIMEOUT_MS = 30", "REQUEST_TIMEOUT_MS = 30000"),
+    "dev-02-config-timeout": (
+        "settings.py",
+        "REQUEST_TIMEOUT_MS = 30",
+        "REQUEST_TIMEOUT_MS = 30000",
+    ),
     "dev-03-rename-symbol": ("orders.py", "compute_total", "compute_sum"),
     "heldout-01-add-palindrome": (
         "text_utils.py",
@@ -68,41 +77,81 @@ FIXES = {
 }
 
 
+def reference_fix(task_dir: Path) -> tuple[str, str | None, str]:
+    """Return the (file, old, new) of the reference edit."""
+    reference = task_dir / "reference_fix.json"
+    if reference.is_file():
+        data = json.loads(reference.read_text(encoding="utf-8"))
+        return str(data["file"]), data.get("old"), str(data["new"])
+    task_id = task_dir.name
+    if task_id not in FIXES:
+        raise KeyError(f"no reference fix for {task_id}")
+    return FIXES[task_id]
+
+
+def run_tests(repo: Path, test_command: list[str]) -> tuple[int, str]:
+    """Run the task's test command and return (exit code, output tail)."""
+    command = [sys.executable if part == "{python}" else part for part in test_command]
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return 124, "the test command timed out"
+    return completed.returncode, ((completed.stdout or "") + (completed.stderr or ""))[-1500:]
+
+
 def main() -> int:
-    tasks = load_repo_tasks()
     failures = 0
-    for task in tasks:
+    checked = 0
+    for task_dir in sorted(TASKS.iterdir()):
+        if not task_dir.is_dir():
+            continue
+        task_file = task_dir / "task.json"
+        if not task_file.is_file():
+            continue
+        task = json.loads(task_file.read_text(encoding="utf-8"))
+        snapshot = task_dir / "repo"
+        if not snapshot.is_dir():
+            continue
+        checked += 1
         work = Path(tempfile.mkdtemp(prefix="taskcheck-"))
         try:
-            shutil.copytree(task.snapshot, work / "repo")
             repo = work / "repo"
-            before = check_task(task, repo)
-            name, old, new = FIXES[task.task_id]
-            path = repo / name
+            shutil.copytree(snapshot, repo)
+            before_code, before_out = run_tests(repo, task["test_command"])
+            file_name, old, new = reference_fix(task_dir)
+            path = repo / file_name
             text = path.read_text(encoding="utf-8")
             if old is not None:
-                assert old in text, f"{task.task_id}: expected {old!r} in {name}"
+                if old not in text:
+                    print(f"BAD  {task['task_id']}: expected {old!r} in {file_name}")
+                    failures += 1
+                    continue
                 path.write_text(text.replace(old, new), encoding="utf-8")
             else:
                 path.write_text(text + new, encoding="utf-8")
-            after = check_task(task, repo)
-            status = "OK " if (not before["passed"] and after["passed"]) else "BAD"
-            if status == "BAD":
+            after_code, after_out = run_tests(repo, task["test_command"])
+            ok = before_code != 0 and after_code == 0
+            if not ok:
                 failures += 1
-            print(
-                f"{status} {task.task_id}: before exit={before['test_exit_code']} "
-                f"passed={before['passed']} | after exit={after['test_exit_code']} "
-                f"passed={after['passed']}"
-            )
-            if status == "BAD":
-                print("   before:", before["test_output_tail"][-400:])
-                print("   after :", after["test_output_tail"][-400:])
+                print(f"BAD  {task['task_id']}: before={before_code} after={after_code}")
+                print("   before:", before_out[-400:])
+                print("   after :", after_out[-400:])
+            else:
+                print(
+                    f"OK   {task['task_id']:<28} [{task.get('split', '?'):<8}] "
+                    f"before={before_code} after={after_code}"
+                )
         finally:
             shutil.rmtree(work, ignore_errors=True)
-    print(f"\n{len(tasks) - failures}/{len(tasks)} tasks are broken-before / fixed-after")
+    print(f"\n{checked - failures}/{checked} tasks are broken-before / fixed-after")
     return 1 if failures else 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

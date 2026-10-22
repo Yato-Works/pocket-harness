@@ -1,0 +1,18 @@
+{
+  "task_id": "heldout-19-script",
+  "split": "held-out",
+  "category": "small script task",
+  "description": "Small script task: the sum script cannot parse the file.",
+  "prompt": "The script scripts/sum.py crashes on the numbers file. Run it, find the problem and fix the script so that it prints the total. Do not modify the tests or the data file.",
+  "test_command": [
+    "{python}",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "forbidden_paths": [
+    "tests/"
+  ],
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

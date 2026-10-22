@@ -1,0 +1,5 @@
+{
+  "file": "ranking.py",
+  "old": "    return sorted(entries, key=lambda entry: entry[\"score\"])",
+  "new": "    return sorted(entries, key=lambda entry: -entry[\"score\"])"
+}

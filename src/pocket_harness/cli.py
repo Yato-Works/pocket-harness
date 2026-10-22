@@ -154,6 +154,7 @@ def _cmd_bench_repo(args: argparse.Namespace) -> int:
             capture=args.capture or "metadata",
             keep_worktrees=args.keep_worktrees,
             temperature=args.temperature,
+            reverse_order=args.reverse_order,
         )
     )
     summary = dict(result["summary"])
@@ -188,6 +189,16 @@ def cmd_replay(args: argparse.Namespace) -> int:
 
 
 # -------------------------------------------------------------------- report
+
+
+def cmd_diagnose(args: argparse.Namespace) -> int:
+    """Run the deterministic mechanism scenarios (diagnostic track)."""
+    from pocket_harness.diagnose import run_scenarios
+
+    config = _load(args)
+    report = asyncio.run(run_scenarios(config, root=args.root or ".e2e/diagnose"))
+    _print_json(report)
+    return 0 if report["summary"]["failed"] == 0 else 1
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -395,6 +406,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="do not append the C4 repetition warning (diagnosis only)",
     )
     p_bench.add_argument(
+        "--reverse-order",
+        action="store_true",
+        help=(
+            "run each condition a second time in the opposite order, so that neither "
+            "one inherits the upstream state from the other (diagnosis only)"
+        ),
+    )
+    p_bench.add_argument(
         "--no-corrective-retry",
         action="store_true",
         help="do not issue a corrective inference retry (diagnosis only)",
@@ -423,6 +442,14 @@ def build_parser() -> argparse.ArgumentParser:
     add_common(p_report)
     p_report.add_argument("--run", help="run ID (defaults to the newest run)")
     p_report.set_defaults(func=cmd_report)
+
+    p_diagnose = sub.add_parser(
+        "diagnose",
+        help="run the deterministic mechanism scenarios (diagnostic track)",
+    )
+    add_common(p_diagnose)
+    p_diagnose.add_argument("--root", help="directory for the scenario state")
+    p_diagnose.set_defaults(func=cmd_diagnose)
 
     p_status = sub.add_parser("status", help="print a deterministic status report")
     add_common(p_status)

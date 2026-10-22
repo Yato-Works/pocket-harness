@@ -1,0 +1,18 @@
+{
+  "task_id": "heldout-20-feature",
+  "split": "held-out",
+  "category": "small feature plus tests",
+  "description": "Small feature plus tests: add a median() helper.",
+  "prompt": "Add a new function median(values) to numbers_utils.py. It must return the median of the values; for an even number of values the average of the two middle ones, and 0 for an empty list. Do not modify the tests.",
+  "test_command": [
+    "{python}",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "forbidden_paths": [
+    "tests/"
+  ],
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

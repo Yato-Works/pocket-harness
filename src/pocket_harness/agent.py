@@ -89,6 +89,13 @@ MAX_READ_CHARS = 8000
 #: How much of the test output is returned to the model.
 MAX_TEST_OUTPUT_CHARS = 4000
 
+#: The tool error the client answers with when a call does not satisfy the
+#: client's schema. It is derived from the schema alone and never guesses a
+#: value. The text is a *declared condition* of the benchmark: it is hashed
+#: into the run manifest so that a run can be compared with another one only
+#: when the client answered the same way.
+TOOL_ERROR_CONTRACT_VERSION = "pocket-tool-error/1"
+
 #: The nudge the client sends when the upstream answered with nothing. The
 #: upstream sometimes emits a generation that decodes into an empty message
 #: (class R); asking the model to continue recovers it (see

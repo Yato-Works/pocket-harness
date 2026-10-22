@@ -1,0 +1,16 @@
+{
+  "task_id": "dev-23-loop-range",
+  "split": "dev",
+  "category": "failing-test repair",
+  "description": "The tests in this project fail. Read the source, work out what is wrong with consecutive(), and fix it so that every test passes. Do not modify the tests.",
+  "prompt": "    for index in range(len(values) - 1):",
+  "test_command": [
+    "{python}",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "forbidden_paths": "Failing-test repair: the last pair is missing.",
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

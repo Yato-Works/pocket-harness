@@ -1,0 +1,5 @@
+{
+  "file": "totals.py",
+  "old": "return first - second",
+  "new": "return first + second"
+}

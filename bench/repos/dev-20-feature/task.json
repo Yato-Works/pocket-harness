@@ -1,0 +1,18 @@
+{
+  "task_id": "dev-20-feature",
+  "split": "dev",
+  "category": "small feature plus tests",
+  "description": "Small feature plus tests: add a titlecase() helper.",
+  "prompt": "Add a new function titlecase(text) to text_utils.py. It must return the text in title case, with every word capitalised and the rest in lower case. Do not modify the tests.",
+  "test_command": [
+    "{python}",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "forbidden_paths": [
+    "tests/"
+  ],
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

@@ -1,0 +1,5 @@
+{
+  "file": "percent.py",
+  "old": "    return part / whole",
+  "new": "    return part / whole * 100"
+}

@@ -1,0 +1,9 @@
+from ranking import by_score
+
+
+def test_by_score():
+    assert by_score([{"score": 1}, {"score": 3}])[0]["score"] == 1
+
+
+def test_by_score_is_descending():
+    assert by_score([{"score": 1}, {"score": 3}])[0]["score"] == 3

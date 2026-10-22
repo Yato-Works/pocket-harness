@@ -1,0 +1,5 @@
+{
+  "file": "average.py",
+  "old": "    return sum(values) / len(values)",
+  "new": "    if not values:\n        return 0\n    return sum(values) / len(values)"
+}

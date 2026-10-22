@@ -1,0 +1,5 @@
+{
+  "file": "lookup.py",
+  "old": "    return record[\"title\"]",
+  "new": "    return record.get(\"title\", \"untitled\")"
+}

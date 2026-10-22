@@ -14,5 +14,6 @@
   ],
   "max_steps": 14,
   "max_wall_seconds": 300,
-  "note": "inspected during development (the empty-answer diagnosis); not usable as held-out data any more"
+  "note": "inspected during development (the empty-answer diagnosis); not usable as held-out data any more",
+  "category": "small feature plus tests"
 }

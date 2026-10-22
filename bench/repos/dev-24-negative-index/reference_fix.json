@@ -1,0 +1,5 @@
+{
+  "file": "tail.py",
+  "old": "    return values[-2]",
+  "new": "    return values[-1]"
+}

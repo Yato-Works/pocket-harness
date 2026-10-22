@@ -1,0 +1,5 @@
+{
+  "file": "counter.py",
+  "old": "            total = 1",
+  "new": "            total += 1"
+}

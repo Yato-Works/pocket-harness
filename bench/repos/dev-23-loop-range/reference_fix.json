@@ -1,0 +1,5 @@
+{
+  "file": "pairs.py",
+  "old": "    for index in range(len(values) - 2):",
+  "new": "    for index in range(len(values) - 1):"
+}

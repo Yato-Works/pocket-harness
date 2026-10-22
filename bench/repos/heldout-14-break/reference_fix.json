@@ -1,0 +1,5 @@
+{
+  "file": "longest.py",
+  "old": "        best = current",
+  "new": "        if current > best:\n            best = current"
+}

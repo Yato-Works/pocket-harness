@@ -1,0 +1,296 @@
+{
+  "name": "mechanism_diagnostics",
+  "note": "Deterministic mechanism scenarios. They show whether a mechanism did its job when its condition arose. They say nothing about task completion, which is the gate evaluation (track B).",
+  "obligations": [
+    {
+      "condition": "the client sends 12 tools and the cap is 6",
+      "measured": {
+        "client_arguments": null,
+        "forwarded_messages": 1,
+        "forwarded_tools": 6,
+        "rules": [
+          "C1.select"
+        ],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 21.387
+      },
+      "mechanism": "C1",
+      "note": "",
+      "obligation": "at most 6 tools are forwarded and the rule is recorded",
+      "satisfied": true
+    },
+    {
+      "condition": "the conversation does not fit the configured budget",
+      "measured": {
+        "client_arguments": null,
+        "forwarded_messages": 16,
+        "forwarded_tools": 1,
+        "rules": [
+          "C2.dedupe",
+          "C2.dedupe",
+          "C2.dedupe",
+          "C2.dedupe",
+          "C2.dedupe",
+          "C2.omit_old_exchange",
+          "C2.omit_old_exchange"
+        ],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 41.709
+      },
+      "mechanism": "C2",
+      "note": "",
+      "obligation": "the request is compressed, the system prompt is unchanged and the tool-call/result pairs stay valid",
+      "satisfied": true
+    },
+    {
+      "condition": "the upstream returns a call with a fenced, trailing-comma argument",
+      "measured": {
+        "client_arguments": {
+          "path": "a.py"
+        },
+        "forwarded_messages": 1,
+        "forwarded_tools": 1,
+        "repaired": 1,
+        "rules": [],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 26.307
+      },
+      "mechanism": "C3",
+      "note": "",
+      "obligation": "the call is repaired and the client receives the repaired arguments",
+      "satisfied": true
+    },
+    {
+      "condition": "the upstream returns a call with no arguments at all",
+      "measured": {
+        "client_arguments": {},
+        "failed": 1,
+        "forwarded_messages": 1,
+        "forwarded_tools": 1,
+        "repaired": 0,
+        "rules": [],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 35.331
+      },
+      "mechanism": "C3",
+      "note": "",
+      "obligation": "the call is reported as a failure and passed through unchanged; nothing is invented",
+      "satisfied": true
+    },
+    {
+      "condition": "the request history contains the same call three times",
+      "measured": {
+        "client_arguments": null,
+        "forwarded_messages": 9,
+        "forwarded_tools": 1,
+        "rules": [
+          "C4.repeat_warning",
+          "C2.dedupe",
+          "C2.dedupe"
+        ],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 30.179,
+        "warning_in_request": true
+      },
+      "mechanism": "C4",
+      "note": "",
+      "obligation": "the repetition is detected and the escalation reaches the model",
+      "satisfied": true
+    },
+    {
+      "condition": "the request history alternates between two calls",
+      "measured": {
+        "client_arguments": null,
+        "forwarded_messages": 11,
+        "forwarded_tools": 2,
+        "rules": [
+          "C4.repeat_warning",
+          "C2.dedupe",
+          "C2.dedupe",
+          "C2.dedupe"
+        ],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 48.082,
+        "warning_in_request": true
+      },
+      "mechanism": "C4",
+      "note": "",
+      "obligation": "the oscillation is detected and the escalation reaches the model",
+      "satisfied": true
+    }
+  ],
+  "scenarios": [
+    {
+      "checks": {
+        "forwarded_tools": true,
+        "rule_prefixes": true
+      },
+      "condition": "the client sends 12 tools and the cap is 6",
+      "measured": {
+        "client_arguments": null,
+        "forwarded_messages": 1,
+        "forwarded_tools": 6,
+        "rules": [
+          "C1.select"
+        ],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 21.387
+      },
+      "mechanism": "C1",
+      "obligation": "at most 6 tools are forwarded and the rule is recorded",
+      "satisfied": true,
+      "scenario": "c1-tool-cap"
+    },
+    {
+      "checks": {
+        "rule_prefixes": true,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true
+      },
+      "condition": "the conversation does not fit the configured budget",
+      "measured": {
+        "client_arguments": null,
+        "forwarded_messages": 16,
+        "forwarded_tools": 1,
+        "rules": [
+          "C2.dedupe",
+          "C2.dedupe",
+          "C2.dedupe",
+          "C2.dedupe",
+          "C2.dedupe",
+          "C2.omit_old_exchange",
+          "C2.omit_old_exchange"
+        ],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 41.709
+      },
+      "mechanism": "C2",
+      "obligation": "the request is compressed, the system prompt is unchanged and the tool-call/result pairs stay valid",
+      "satisfied": true,
+      "scenario": "c2-context-budget"
+    },
+    {
+      "checks": {
+        "client_arguments": true,
+        "repaired": true
+      },
+      "condition": "the upstream returns a call with a fenced, trailing-comma argument",
+      "measured": {
+        "client_arguments": {
+          "path": "a.py"
+        },
+        "forwarded_messages": 1,
+        "forwarded_tools": 1,
+        "repaired": 1,
+        "rules": [],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 26.307
+      },
+      "mechanism": "C3",
+      "obligation": "the call is repaired and the client receives the repaired arguments",
+      "satisfied": true,
+      "scenario": "c3-repairable"
+    },
+    {
+      "checks": {
+        "client_arguments": true,
+        "failed": true,
+        "repaired": true
+      },
+      "condition": "the upstream returns a call with no arguments at all",
+      "measured": {
+        "client_arguments": {},
+        "failed": 1,
+        "forwarded_messages": 1,
+        "forwarded_tools": 1,
+        "repaired": 0,
+        "rules": [],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 35.331
+      },
+      "mechanism": "C3",
+      "obligation": "the call is reported as a failure and passed through unchanged; nothing is invented",
+      "satisfied": true,
+      "scenario": "c3-unrepairable"
+    },
+    {
+      "checks": {
+        "rule_prefixes": true,
+        "warning_in_request": true
+      },
+      "condition": "the request history contains the same call three times",
+      "measured": {
+        "client_arguments": null,
+        "forwarded_messages": 9,
+        "forwarded_tools": 1,
+        "rules": [
+          "C4.repeat_warning",
+          "C2.dedupe",
+          "C2.dedupe"
+        ],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 30.179,
+        "warning_in_request": true
+      },
+      "mechanism": "C4",
+      "obligation": "the repetition is detected and the escalation reaches the model",
+      "satisfied": true,
+      "scenario": "c4-repeat"
+    },
+    {
+      "checks": {
+        "rule_prefixes": true,
+        "warning_in_request": true
+      },
+      "condition": "the request history alternates between two calls",
+      "measured": {
+        "client_arguments": null,
+        "forwarded_messages": 11,
+        "forwarded_tools": 2,
+        "rules": [
+          "C4.repeat_warning",
+          "C2.dedupe",
+          "C2.dedupe",
+          "C2.dedupe"
+        ],
+        "status_code": 200,
+        "system_prompt_unchanged": true,
+        "tool_result_pairs_valid": true,
+        "wall_ms": 48.082,
+        "warning_in_request": true
+      },
+      "mechanism": "C4",
+      "obligation": "the oscillation is detected and the escalation reaches the model",
+      "satisfied": true,
+      "scenario": "c4-oscillation"
+    }
+  ],
+  "summary": {
+    "failed": 0,
+    "satisfied": 6,
+    "scenarios": 6
+  },
+  "track": "A"
+}

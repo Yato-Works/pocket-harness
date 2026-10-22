@@ -1,0 +1,18 @@
+{
+  "task_id": "dev-19-script",
+  "split": "dev",
+  "category": "small script task",
+  "description": "Small script task: the report script cannot parse the file.",
+  "prompt": "The script scripts/report.py crashes on the numbers file. Run it, find the problem and fix the script so that it prints the total. Do not modify the tests or the data file.",
+  "test_command": [
+    "{python}",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "forbidden_paths": [
+    "tests/"
+  ],
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

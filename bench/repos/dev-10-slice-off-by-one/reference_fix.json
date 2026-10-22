@@ -1,0 +1,5 @@
+{
+  "file": "window.py",
+  "old": "values[: size - 1]",
+  "new": "values[:size]"
+}

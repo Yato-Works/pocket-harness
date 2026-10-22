@@ -1,0 +1,18 @@
+{
+  "task_id": "dev-11-add-subtract",
+  "split": "dev",
+  "category": "failing-test repair",
+  "description": "Failing-test repair: total() subtracts instead of adding.",
+  "prompt": "The tests in this project fail. Read the source, work out what is wrong with total(), and fix it so that every test passes. Do not modify the tests.",
+  "test_command": [
+    "{python}",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "forbidden_paths": [
+    "tests/"
+  ],
+  "max_steps": 12,
+  "max_wall_seconds": 300
+}

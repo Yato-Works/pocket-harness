@@ -1,0 +1,5 @@
+{
+  "file": "money.py",
+  "old": "f\"{cents / 100:.0f}\"",
+  "new": "f\"{cents / 100:.2f}\""
+}

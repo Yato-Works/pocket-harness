@@ -1,0 +1,5 @@
+{
+  "file": "scripts/report.py",
+  "old": "            running += int(line)",
+  "new": "            if line.strip():\n                running += int(line)"
+}

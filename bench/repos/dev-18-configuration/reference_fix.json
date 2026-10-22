@@ -1,0 +1,5 @@
+{
+  "file": "settings.py",
+  "old": "REQUEST_TIMEOUT_SECONDS = 30",
+  "new": "REQUEST_TIMEOUT_SECONDS = 300"
+}

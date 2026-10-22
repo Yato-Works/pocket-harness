@@ -1,0 +1,5 @@
+{
+  "file": "temperatures.py",
+  "old": "    return celsius <= 0",
+  "new": "    return celsius < 0"
+}

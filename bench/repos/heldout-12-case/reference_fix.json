@@ -1,0 +1,5 @@
+{
+  "file": "search.py",
+  "old": "    return word in text",
+  "new": "    return word.lower() in text.lower()"
+}

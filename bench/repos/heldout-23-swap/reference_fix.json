@@ -1,0 +1,5 @@
+{
+  "file": "move.py",
+  "old": "    values[source] = None\n    return values",
+  "new": "    values[target] = values[source]\n    values[source] = None\n    return values"
+}

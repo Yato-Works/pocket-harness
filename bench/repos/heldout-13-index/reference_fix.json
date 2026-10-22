@@ -1,0 +1,5 @@
+{
+  "file": "second.py",
+  "old": "    return values[0]",
+  "new": "    return values[1]"
+}

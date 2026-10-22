@@ -322,15 +322,28 @@ pocket-harness bench --suite repo --require-gates
 ```
 
 The summary contains the completion rate with a 95% Wilson interval, the paired
-outcomes, an exact McNemar test, the O/M/L/S/W/R failure classes and the
-**intervention coverage** — how often C1, C2 and C3 actually changed something. A
-comparison in which no intervention ever fired cannot show an effect, whatever the
-completion numbers look like.
+outcomes, an exact McNemar test, the O/M/L/S/W/R failure classes, the
+**intervention coverage** and the **two evaluation tracks** (mechanism
+diagnostics and task completion). A comparison in which no intervention ever
+fired cannot show an effect, whatever the completion numbers look like.
 
-The gate verdicts (G0 problem fit, G1 demonstrated value, public release) are in
-[`docs/PERFORMANCE-GATE-AUDIT.md`](docs/PERFORMANCE-GATE-AUDIT.md). **They are not
-met.** The raw records of every run quoted there are in
-[`docs/benchmarks/`](docs/benchmarks/).
+### The mechanism diagnostics (`diagnose`)
+
+```bash
+pocket-harness diagnose --config bench/bench-local.toml
+```
+
+Six deterministic scenarios create each mechanism's condition on purpose — more
+tools than the cap, a conversation over the budget, a repairable and an
+unrepairable tool call, a repeated call and an oscillation — and check the
+mechanism's obligation. No model and no network are involved, so the result is
+reproducible by construction. **This is the diagnostic track: it says whether a
+mechanism did its job, never that a task got completed.**
+
+The gate verdicts (G0 problem fit, G1 demonstrated value, public release) and
+the decision that follows from them are in
+[`docs/DECISION.md`](docs/DECISION.md). The raw records of every run quoted
+there are in [`docs/benchmarks/`](docs/benchmarks/).
 
 ## Tested upstream capability profile
 
@@ -474,42 +487,27 @@ p95 5.6 ms, well inside the plan's p95 ≤ 50 ms target; the benchmark matrix is
 the sampling is pinned and the volatile parts of the tool output are removed.
 
 **Implemented but *not* demonstrated** — the performance gates of `Plan.md` §11.5.
-On a **fresh, untouched held-out set** (3 tasks × 3 seeds, conditions declared
-before the run, reproducible 18/18):
+The evaluation now uses **42 repository tasks** (27 development, 15 held-out, all
+proven broken-before/fixed-after) and reports **two separate tracks**:
+
+| track | question | result |
+|---|---|---|
+| **A — mechanism diagnostics** | do C1–C4 do their job when their condition arises? | **yes**: 6 of 6 deterministic scenarios pass; on the held-out split C3 validated 213 calls and detected 33 invalid ones, C2 compressed 14 times (26 392 tokens), C4 detected 10 repetitions and escalated all of them |
+| **B — task completion** | do tasks get finished? | **no improvement**: baseline 18/42 (42.9 %) vs harness 10/33 (30.3 %), paired difference **−12.6 points**, exact McNemar p = 0.25; paired outcomes 9 both passed, 18 both failed, **3 baseline only, 0 harness only** |
 
 | gate | verdict | why |
 |---|---|---|
-| G0 — problem fit | **pass** | 6 of 6 eligible baseline failures (100 %) are attributable to O/M/L/S: the local failures really are malformed tool calls and repetitions, not reasoning failures |
-| G1 — demonstrated value | **stop** | the held-out completion difference is **0.0 points** (3/9 vs 3/9, McNemar p = 1.0): the mechanisms fire and the completion rate does not move |
-| Public release gate | **fail** | 3 held-out tasks; the gate needs 40 |
-| §2 proxy overhead | **met** | p50 0.87 ms, p95 4.57 ms |
+| G0 — problem fit | **pass** | 15 of 24 eligible baseline failures (62 %) are attributable to O/M/L/S: the local failures really are malformed tool calls and repetitions |
+| G1 — demonstrated value | **stop** | the held-out difference is **−12.6 points**; below +10 the plan requires a stop and a re-evaluation of the premise |
+| Public release gate | **pass** | 42 tasks (≥ 40) with a separate held-out slice, and the configurations, manifests, raw outcomes, failure examples and limitations are published here |
+| §2 proxy overhead | **met** | p50 0.99 ms, p95 7.99 ms |
 
-The mechanisms are not idle — C4 escalated nine times, 21 invalid tool calls
-were detected — and one of them was actively harmful: the corrective inference
-retry of §6 C3 §6 lowered the held-out result by 33 points and is therefore
-**off by default** ([ADR 0004](docs/decisions/0004-corrective-retry-default-off.md)).
+**No completion-rate improvement is claimed.** The dominant failure is class
+**M** — the model emits `write_file` with *no arguments at all*. C3 detects it
+and must not invent the missing values (§6 C3 §3), the client answers with a
+precise schema-derived error ([ADR 0005](docs/decisions/0005-precise-tool-error.md)),
+and the model usually repeats the call. The deterministic tools cannot fix a
+model that will not produce a well-formed call.
 
-**No completion-rate improvement is claimed.** With three held-out tasks and
-four usable pairs at most, p = 1.0 does not prove the absence of an effect; it
-means this suite cannot resolve one. The suite's own noise band was measured:
-an unrelated change to the tool-error text moved **11 of 18 runs** (5 up,
-6 down), i.e. roughly **±28 points** — the same size as the +30 point gate.
-Resolving G1 needs a held-out suite of the size the plan's public release gate
-already asks for (40+ tasks), or a lower-variance upstream.
-
-Still open:
-
-- The §11.1 task suite has 3 held-out tasks (12 in total, 9 of them retired
-  to development because their results were inspected); the public release gate
-  needs 40.
-- The dominant failure class is **M**: the model emits `write_file` with no
-  arguments at all. C3 detects it and must not guess the missing values, so
-  the client answers with a precise, schema-derived error
-  ([ADR 0005](docs/decisions/0005-precise-tool-error.md)) and stops a task
-  that repeats the same failing call three times. That fixes the class it
-  targets (5 runs moved from an M failure to a pass in the A/B) but perturbs
-  every later turn, so the aggregate is not resolvable on this suite.
-- The upstream's empty-answer failure mode is understood and partly mitigated
-  (the client asks once more), but it is a property of the model, not of the
-  proxy.
-- No MoE model, no LM Studio, no Anthropic Messages API / Claude Code adapter.
+The outcome of the evaluation, the decision that follows from it and the next
+minimal step are in **[`docs/DECISION.md`](docs/DECISION.md)**.

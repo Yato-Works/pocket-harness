@@ -1,0 +1,5 @@
+{
+  "file": "names.py",
+  "old": "    return prefix in name",
+  "new": "    return name.startswith(prefix)"
+}

@@ -1,22 +1,41 @@
 {
+  "declared_at": "2026-10-22, before the run",
   "held_out_tasks": [
-    "heldout-07-clamp",
-    "heldout-08-word-count",
-    "heldout-09-merge-dicts"
+    "heldout-10-mutation",
+    "heldout-11-division",
+    "heldout-12-case",
+    "heldout-13-index",
+    "heldout-14-break",
+    "heldout-15-missing-key",
+    "heldout-16-sort-key",
+    "heldout-17-rename",
+    "heldout-18-configuration",
+    "heldout-19-script",
+    "heldout-20-feature",
+    "heldout-21-key",
+    "heldout-22-double-negative",
+    "heldout-23-swap",
+    "heldout-24-sort-stable"
   ],
+  "held_out_task_count": 15,
   "temperature": 0.0,
   "seeds": [
     1,
     2,
     3
   ],
-  "corrective_retries_per_request": 1,
-  "corrective_retries_per_task": 3,
-  "abort_on_repeat": false,
-  "empty_retry_budget_per_task": 1,
   "conditions": [
     "baseline",
     "harness"
   ],
-  "predeclared_conditions_sha256": "2109c26913794866d4c557a5718ce2be227ba17bb4bc9903e322fc3ad8eec344"
+  "corrective_retries_per_request": 0,
+  "corrective_retries_per_task": 0,
+  "abort_on_repeat": false,
+  "warn_on_repeat": true,
+  "empty_retry_budget_per_task": 1,
+  "max_identical_failures": 3,
+  "system_prompt_sha256": "3dfc96d11aeb922f00d0a4d2f591e4f1886dc178b696b98e0545441a55c7efcc",
+  "tool_error_contract": "pocket-tool-error/1",
+  "notes": "The rules are locked: the prompt, the tool error contract, the retry budgets and the task list are declared here and are not changed by this evaluation. The held-out tasks were never used for tuning; the tasks whose results were inspected earlier were moved to the development split.",
+  "predeclared_conditions_sha256": "3e0591d14cd241bb3fb4ffd2787347c6db9b736cd3ac14fd8c54690129e47002"
 }

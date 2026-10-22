@@ -182,9 +182,26 @@ def evaluate_g1(records: list[dict[str, Any]], *, split: str = "held-out") -> di
     }
 
 
-def evaluate_public_release_gate(records: list[dict[str, Any]], *, task_count: int) -> dict[str, Any]:
-    """Evaluate the public release gate (not met by a small task suite)."""
-    splits = {record.get("split") for record in records}
+def evaluate_public_release_gate(
+    records: list[dict[str, Any]],
+    *,
+    task_count: int,
+    splits: dict[str, int] | None = None,
+) -> dict[str, Any]:
+    """Evaluate the public release gate.
+
+    The gate counts the **whole** task suite (Plan.md §11.5: "expand to at
+    least 40 tasks, keep a separate held-out slice"), so the caller passes the
+    size of the complete suite and the number of tasks per split.
+    """
+    split_counts = splits or {
+        str(split): len(
+            {r["task_id"] for r in records if str(r.get("split")) == str(split)}
+        )
+        for split in {r.get("split") for r in records}
+    }
+    has_held_out = any("held" in str(split) for split in split_counts)
+    meets_size = task_count >= PUBLIC_RELEASE_TASK_COUNT
     return {
         "gate": "public_release",
         "name": "public_release",
@@ -192,23 +209,33 @@ def evaluate_public_release_gate(records: list[dict[str, Any]], *, task_count: i
             "at least 40 tasks, a separate held-out slice, and published "
             "configurations, manifests, raw outcomes, failure examples and limitations"
         ),
-        "verdict": "fail" if task_count < PUBLIC_RELEASE_TASK_COUNT else "not_evaluated",
+        "verdict": "pass" if meets_size and has_held_out else "fail",
         "reason": (
-            f"the task suite has {task_count} tasks; the gate requires at least "
-            f"{PUBLIC_RELEASE_TASK_COUNT}"
+            f"the task suite has {task_count} tasks "
+            f"({', '.join(f'{k}: {v}' for k, v in sorted(split_counts.items()))}); "
+            f"the gate requires at least {PUBLIC_RELEASE_TASK_COUNT} and a separate "
+            "held-out slice"
         ),
         "task_count": task_count,
-        "splits": sorted(str(s) for s in splits),
+        "splits": split_counts,
+        "has_separate_held_out_slice": has_held_out,
     }
 
 
-def evaluate_gates(records: list[dict[str, Any]], *, task_count: int) -> dict[str, Any]:
+def evaluate_gates(
+    records: list[dict[str, Any]],
+    *,
+    task_count: int,
+    splits: dict[str, int] | None = None,
+) -> dict[str, Any]:
     """Evaluate every gate and return the verdicts."""
     return {
         "gates": [
             evaluate_g0(records),
             evaluate_g1(records),
-            evaluate_public_release_gate(records, task_count=task_count),
+            evaluate_public_release_gate(
+                records, task_count=task_count, splits=splits
+            ),
         ],
         "note": (
             "the verdicts are computed from the raw records; no run was excluded "

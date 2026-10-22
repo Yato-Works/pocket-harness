@@ -37,11 +37,14 @@ import httpx
 from pocket_harness.agent import (
     SYSTEM_PROMPT,
     SYSTEM_PROMPT_SHA256,
+    TOOL_ERROR_CONTRACT_VERSION,
     AgentRun,
     ScriptedAgent,
     prepare_worktree,
 )
 from pocket_harness.config import Config
+from pocket_harness.evaluation import evaluate_gates
+from pocket_harness.mechanism_eval import compare_tracks
 from pocket_harness.proxy import create_app
 from pocket_harness.state import StateStore
 from pocket_harness.stats import (
@@ -272,6 +275,8 @@ def _proxy_metrics(events: list[dict[str, Any]]) -> dict[str, Any]:
     c4_warnings = 0
     blob_refs = 0
     loop_events = 0
+    loop_aborted = 0
+    corrective_retries = 0
     for event in events:
         name = event.get("event")
         payload = event.get("payload") or {}
@@ -298,6 +303,10 @@ def _proxy_metrics(events: list[dict[str, Any]]) -> dict[str, Any]:
             blob_refs += 1
         elif name == "loop.detected":
             loop_events += 1
+        elif name == "loop.aborted":
+            loop_aborted += 1
+        elif name == "repair.retry":
+            corrective_retries += 1
     return {
         "transform_ms": transform_ms,
         "proxy_only_overhead_ms": latency_summary(transform_ms),
@@ -310,6 +319,8 @@ def _proxy_metrics(events: list[dict[str, Any]]) -> dict[str, Any]:
         "c4_escalations": c4_warnings,
         "blob_references": blob_refs,
         "loop_events": loop_events,
+        "loop_aborted": loop_aborted,
+        "corrective_retries": corrective_retries,
     }
 
 
@@ -325,6 +336,7 @@ async def run_repo_benchmark(
     capture: str = "metadata",
     keep_worktrees: bool = False,
     temperature: float | None = 0.0,
+    reverse_order: bool = False,
 ) -> dict[str, Any]:
     """Run the repository benchmark and return the raw records plus the summary."""
     tasks = load_repo_tasks(task_dir)
@@ -361,6 +373,24 @@ async def run_repo_benchmark(
                             temperature=temperature,
                         )
                     )
+                if reverse_order:
+                    # The two conditions are run a second time in the opposite
+                    # order, so that neither of them systematically inherits the
+                    # upstream state from the other. This is a diagnostic: it
+                    # shows whether the result follows the condition or the order.
+                    for condition in reversed(conditions):
+                        records.append(
+                            await _run_one(
+                                config,
+                                task,
+                                condition,
+                                seed,
+                                worktree_root,
+                                capture=capture,
+                                keep_worktrees=keep_worktrees,
+                                temperature=temperature,
+                            )
+                        )
     finally:
         if not keep_worktrees:
             shutil.rmtree(worktree_root, ignore_errors=True)
@@ -375,6 +405,15 @@ async def run_repo_benchmark(
     )
     summary["task_suite_hash"] = suite_hash(tasks)
     summary["tasks"] = [t.to_dict() for t in tasks]
+    # The public release gate counts the whole suite, not only the tasks that
+    # took part in this run (Plan.md §11.5: "expand to at least 40 tasks, keep
+    # a separate held-out slice").
+    summary["task_suite_size"] = len(load_repo_tasks(task_dir))
+    summary["gates"] = evaluate_gates(
+        records,
+        task_count=summary["task_suite_size"],
+        splits=_splits_of(records),
+    )
     raw_path = ""
     if output_dir is not None:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -525,6 +564,7 @@ def build_manifest(
         "temperature": temperature,
         "system_prompt": SYSTEM_PROMPT,
         "system_prompt_sha256": SYSTEM_PROMPT_SHA256,
+        "tool_error_contract": TOOL_ERROR_CONTRACT_VERSION,
         "python": platform.python_version(),
         "platform": platform.platform(),
         "cpu_count": _cpu_count(),
@@ -683,9 +723,27 @@ def summarize(
         "paired": paired,
         "paired_test": test.to_dict(),
         "intervention_coverage": _coverage(eligible),
+        "tracks": compare_tracks(records),
         "started_at": started,
         "finished_at": time.time(),
     }
+
+
+def _splits_of(records: list[dict[str, Any]]) -> dict[str, int]:
+    """Return the number of distinct tasks per split in these records."""
+    counts: dict[str, int] = {}
+    for record in records:
+        split = str(record.get("split") or "unknown")
+        counts.setdefault(split, 0)
+    for split in list(counts):
+        counts[split] = len(
+            {
+                record["task_id"]
+                for record in records
+                if str(record.get("split") or "unknown") == split
+            }
+        )
+    return counts
 
 
 def _coverage(records: list[dict[str, Any]]) -> dict[str, Any]:
