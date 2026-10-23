@@ -133,6 +133,8 @@ def _cmd_bench_repo(args: argparse.Namespace) -> int:
     from pocket_harness.repo_bench import load_repo_tasks, run_repo_benchmark
 
     config = _load(args)
+    if getattr(args, "baseline_upstream", None):
+        config.upstream.baseline_base_url = str(args.baseline_upstream)
     if getattr(args, "abort_on_repeat", False):
         config.loop_guard.abort_on_repeat = True
     if getattr(args, "no_c4_warning", False):
@@ -404,6 +406,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-c4-warning",
         action="store_true",
         help="do not append the C4 repetition warning (diagnosis only)",
+    )
+    p_bench.add_argument(
+        "--baseline-upstream",
+        dest="baseline_upstream",
+        help=(
+            "base URL of an independent upstream instance for the baseline "
+            "condition, so the two conditions never share upstream state "
+            "(DECISION.md §7.1)"
+        ),
     )
     p_bench.add_argument(
         "--reverse-order",

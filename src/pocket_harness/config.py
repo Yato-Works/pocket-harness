@@ -83,6 +83,11 @@ class UpstreamConfig(BaseModel):
 
     kind: Literal["openai-compatible"] = "openai-compatible"
     base_url: str = "http://127.0.0.1:11434/v1"
+    #: An independent upstream instance serving the *baseline* condition, so
+    #: that the two conditions of a comparison never share upstream state
+    #: (run-order effect, DECISION.md §7.1). ``None`` means both conditions use
+    #: ``base_url``.
+    baseline_base_url: str | None = None
     model: str = ""
     context_length: int | None = None
     api_key: str | None = None

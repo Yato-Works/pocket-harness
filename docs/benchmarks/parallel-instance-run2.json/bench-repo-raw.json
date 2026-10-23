@@ -1,0 +1,823 @@
+{
+  "config_hash": "70143aad20fc109ce524f993489f36c4946eaae0aa7e10f5d0d2132bf50b65da",
+  "manifest": {
+    "baseline_upstream_base_url": "http://127.0.0.1:11435/v1",
+    "conditions": [
+      "baseline",
+      "harness"
+    ],
+    "config_hash": "70143aad20fc109ce524f993489f36c4946eaae0aa7e10f5d0d2132bf50b65da",
+    "context_length": 8192,
+    "cpu_count": 16,
+    "model": "qwen2.5:7b-instruct",
+    "packages": {
+      "httpx": "0.28.1",
+      "jsonschema": "4.26.0",
+      "pydantic": "2.14.1",
+      "starlette": "1.9.0",
+      "uvicorn": "0.54.0"
+    },
+    "pipeline_version": "pocket-harness/0.1.0",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "python": "3.11.15",
+    "ram_bytes": 17028628480,
+    "seeds": [
+      1
+    ],
+    "server": {
+      "url": "http://127.0.0.1:11434/api/version",
+      "version": {
+        "version": "0.40.6"
+      }
+    },
+    "system_prompt": "You are a careful coding assistant working inside a small Python project. Use the provided tools to inspect and change the project, then run the tests.",
+    "system_prompt_sha256": "3dfc96d11aeb922f00d0a4d2f591e4f1886dc178b696b98e0545441a55c7efcc",
+    "temperature": 0.0,
+    "tool_error_contract": "pocket-tool-error/1",
+    "upstream_base_url": "http://127.0.0.1:11434/v1",
+    "upstream_model": "qwen2.5:7b-instruct"
+  },
+  "pipeline_version": "pocket-harness/0.1.0",
+  "records": [
+    {
+      "changed_files": [],
+      "check_seconds": 1.5,
+      "completion_tokens": 542,
+      "condition": "baseline",
+      "eligible": false,
+      "excluded_reason": null,
+      "failure_class": "R",
+      "failure_reasons": [
+        "the upstream returned an empty completion",
+        "1 tool call(s) did not validate against the client's schema"
+      ],
+      "failure_signals": [
+        "R",
+        "M"
+      ],
+      "final_text": "",
+      "forbidden_violation": null,
+      "invalid_tool_calls_before_c3": 1,
+      "model": "qwen2.5:7b-instruct",
+      "passed": false,
+      "prompt_tokens": 4478,
+      "proxy": {
+        "blob_references": 0,
+        "c4_escalations": 0,
+        "compression_events": 0,
+        "corrective_retries": 0,
+        "invalid_tool_calls_after_c3": 0,
+        "loop_aborted": 0,
+        "loop_events": 0,
+        "proxy_only_overhead_ms": {
+          "count": 0,
+          "mean": null,
+          "p50": null,
+          "p95": null,
+          "total": null
+        },
+        "tokens_saved_by_compression": 0,
+        "tool_calls_checked": 0,
+        "tool_calls_repaired": 0,
+        "tool_selection_events": 0,
+        "transform_ms": []
+      },
+      "seed": 1,
+      "split": "held-out",
+      "steps": 7,
+      "stop_reason": "empty_completion",
+      "task_id": "heldout-10-mutation",
+      "test_exit_code": 1,
+      "test_output_tail": ".F                                                                       [100%]\n================================== FAILURES ===================================\n_________________ test_with_prefix_does_not_change_the_input __________________\n\n    def test_with_prefix_does_not_change_the_input():\n        original = [\"a\"]\n        with_prefix(original, \"x-\")\n>       assert original == [\"a\"]\nE       AssertionError: assert ['x-a'] == ['a']\nE         \nE         At index 0 diff: 'x-a' != 'a'\nE         Use -v to get more diff\n\ntests\\test_labels.py:11: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_labels.py::test_with_prefix_does_not_change_the_input - Ass...\n1 failed, 1 passed in 0.52s\n",
+      "time_to_first_tool_call": 2.125,
+      "tool_calls": [
+        {
+          "arguments_sha256": "9f7d558d7c45622b",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "4c08404198716f5e",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "831802f26fff3a86",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "",
+          "name": "run_tests",
+          "ok": false,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "M.schema",
+          "name": "write_file",
+          "ok": false,
+          "tool_error_class": "M.schema",
+          "valid_before_c3": false
+        }
+      ],
+      "total_tokens": 5020,
+      "ttft_seconds": 2.125,
+      "upstream": "http://127.0.0.1:11435/v1",
+      "wall_seconds": 18.28200000000652
+    },
+    {
+      "changed_files": [],
+      "check_seconds": 1.187,
+      "completion_tokens": 542,
+      "condition": "harness",
+      "eligible": false,
+      "excluded_reason": null,
+      "failure_class": "R",
+      "failure_reasons": [
+        "the upstream returned an empty completion",
+        "1 tool call(s) did not validate against the client's schema"
+      ],
+      "failure_signals": [
+        "R",
+        "M"
+      ],
+      "final_text": "",
+      "forbidden_violation": null,
+      "invalid_tool_calls_before_c3": 1,
+      "model": "qwen2.5:7b-instruct",
+      "passed": false,
+      "prompt_tokens": 4478,
+      "proxy": {
+        "blob_references": 0,
+        "c4_escalations": 0,
+        "compression_events": 0,
+        "corrective_retries": 0,
+        "invalid_tool_calls_after_c3": 1,
+        "loop_aborted": 0,
+        "loop_events": 0,
+        "proxy_only_overhead_ms": {
+          "count": 7,
+          "mean": 1.9966,
+          "p50": 1.476,
+          "p95": 4.2692,
+          "total": 13.976
+        },
+        "tokens_saved_by_compression": 0,
+        "tool_calls_checked": 5,
+        "tool_calls_repaired": 0,
+        "tool_selection_events": 0,
+        "transform_ms": [
+          5.342,
+          0.974,
+          1.757,
+          1.222,
+          1.476,
+          1.439,
+          1.766
+        ]
+      },
+      "seed": 1,
+      "split": "held-out",
+      "steps": 7,
+      "stop_reason": "empty_completion",
+      "task_id": "heldout-10-mutation",
+      "test_exit_code": 1,
+      "test_output_tail": ".F                                                                       [100%]\n================================== FAILURES ===================================\n_________________ test_with_prefix_does_not_change_the_input __________________\n\n    def test_with_prefix_does_not_change_the_input():\n        original = [\"a\"]\n        with_prefix(original, \"x-\")\n>       assert original == [\"a\"]\nE       AssertionError: assert ['x-a'] == ['a']\nE         \nE         At index 0 diff: 'x-a' != 'a'\nE         Use -v to get more diff\n\ntests\\test_labels.py:11: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_labels.py::test_with_prefix_does_not_change_the_input - Ass...\n1 failed, 1 passed in 0.43s\n",
+      "time_to_first_tool_call": 2.5,
+      "tool_calls": [
+        {
+          "arguments_sha256": "9f7d558d7c45622b",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "4c08404198716f5e",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "831802f26fff3a86",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "",
+          "name": "run_tests",
+          "ok": false,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "M.schema",
+          "name": "write_file",
+          "ok": false,
+          "tool_error_class": "M.schema",
+          "valid_before_c3": false
+        }
+      ],
+      "total_tokens": 5020,
+      "ttft_seconds": 2.5,
+      "upstream": "http://127.0.0.1:11434/v1",
+      "wall_seconds": 21.07800000003772
+    },
+    {
+      "changed_files": [
+        "percent.py"
+      ],
+      "check_seconds": 1.359,
+      "completion_tokens": 546,
+      "condition": "baseline",
+      "eligible": true,
+      "excluded_reason": null,
+      "failure_class": "",
+      "failure_reasons": [
+        "1 tool call(s) did not validate against the client's schema"
+      ],
+      "failure_signals": [
+        "M"
+      ],
+      "final_text": "The tests have passed after updating the `percent` function. The `percent` function now correctly calculates the percentage, and the test `test_percent` has verified this.\n\nHere is the updated `percent.py` content:\n```python\ndef percent(part, whole):\n    return part / whole * 100\n```\n\nAll tests have passed. If you need any further assistance, feel free to ask!",
+      "forbidden_violation": null,
+      "invalid_tool_calls_before_c3": 1,
+      "model": "qwen2.5:7b-instruct",
+      "passed": true,
+      "prompt_tokens": 4526,
+      "proxy": {
+        "blob_references": 0,
+        "c4_escalations": 0,
+        "compression_events": 0,
+        "corrective_retries": 0,
+        "invalid_tool_calls_after_c3": 0,
+        "loop_aborted": 0,
+        "loop_events": 0,
+        "proxy_only_overhead_ms": {
+          "count": 0,
+          "mean": null,
+          "p50": null,
+          "p95": null,
+          "total": null
+        },
+        "tokens_saved_by_compression": 0,
+        "tool_calls_checked": 0,
+        "tool_calls_repaired": 0,
+        "tool_selection_events": 0,
+        "transform_ms": []
+      },
+      "seed": 1,
+      "split": "held-out",
+      "steps": 8,
+      "stop_reason": "model_stopped",
+      "task_id": "heldout-11-division",
+      "test_exit_code": 0,
+      "test_output_tail": ".                                                                        [100%]\n1 passed in 0.42s\n",
+      "time_to_first_tool_call": 4.219,
+      "tool_calls": [
+        {
+          "arguments_sha256": "42b3b47796d55336",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "11429f4054cfb270",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "11429f4054cfb270",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "M.schema",
+          "name": "write_file",
+          "ok": false,
+          "tool_error_class": "M.schema",
+          "valid_before_c3": false
+        },
+        {
+          "arguments_sha256": "f516f0acad5dffcb",
+          "error_class": "",
+          "name": "write_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "",
+          "name": "run_tests",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        }
+      ],
+      "total_tokens": 5072,
+      "ttft_seconds": 4.219,
+      "upstream": "http://127.0.0.1:11435/v1",
+      "wall_seconds": 21.57799999997951
+    },
+    {
+      "changed_files": [],
+      "check_seconds": 2.0,
+      "completion_tokens": 273,
+      "condition": "harness",
+      "eligible": true,
+      "excluded_reason": null,
+      "failure_class": "W",
+      "failure_reasons": [
+        "the task failed and no proxy-addressable cause was recorded"
+      ],
+      "failure_signals": [
+        "W"
+      ],
+      "final_text": "It seems there was a duplicate response. Let's proceed with the information we have. The `percent` function in `percent.py` currently returns the division of `part` by `whole`, which is correct for calculating a percentage. However, the test in `tests/test_percent.py` expects the result to be an integer or float, not the division result. The test should be checking if the function returns the correct percentage value, which is 25 for the input (1, 4).\n\nLet's modify the `percent` function to return the percentage as a string formatted to two decimal places. This should pass the test.\n\nI will now write the updated `percent` function and run the tests.\n",
+      "forbidden_violation": null,
+      "invalid_tool_calls_before_c3": 0,
+      "model": "qwen2.5:7b-instruct",
+      "passed": false,
+      "prompt_tokens": 1806,
+      "proxy": {
+        "blob_references": 0,
+        "c4_escalations": 0,
+        "compression_events": 0,
+        "corrective_retries": 0,
+        "invalid_tool_calls_after_c3": 0,
+        "loop_aborted": 0,
+        "loop_events": 0,
+        "proxy_only_overhead_ms": {
+          "count": 4,
+          "mean": 2.0815,
+          "p50": 1.13,
+          "p95": 4.8209,
+          "total": 8.326
+        },
+        "tokens_saved_by_compression": 0,
+        "tool_calls_checked": 3,
+        "tool_calls_repaired": 0,
+        "tool_selection_events": 0,
+        "transform_ms": [
+          0.619,
+          1.273,
+          0.987,
+          5.447
+        ]
+      },
+      "seed": 1,
+      "split": "held-out",
+      "steps": 4,
+      "stop_reason": "model_stopped",
+      "task_id": "heldout-11-division",
+      "test_exit_code": 1,
+      "test_output_tail": "F                                                                        [100%]\n================================== FAILURES ===================================\n________________________________ test_percent _________________________________\n\n    def test_percent():\n>       assert percent(1, 4) == 25\nE       assert 0.25 == 25\nE        +  where 0.25 = percent(1, 4)\n\ntests\\test_percent.py:5: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_percent.py::test_percent - assert 0.25 == 25\n1 failed in 0.70s\n",
+      "time_to_first_tool_call": 3.219,
+      "tool_calls": [
+        {
+          "arguments_sha256": "42b3b47796d55336",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "11429f4054cfb270",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "11429f4054cfb270",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        }
+      ],
+      "total_tokens": 2079,
+      "ttft_seconds": 3.219,
+      "upstream": "http://127.0.0.1:11434/v1",
+      "wall_seconds": 10.51600000000326
+    },
+    {
+      "changed_files": [],
+      "check_seconds": 1.547,
+      "completion_tokens": 437,
+      "condition": "baseline",
+      "eligible": true,
+      "excluded_reason": null,
+      "failure_class": "M",
+      "failure_reasons": [
+        "1 tool call(s) did not validate against the client's schema"
+      ],
+      "failure_signals": [
+        "M"
+      ],
+      "final_text": "It seems there was an issue with the previous attempt. Let's directly modify the `contains_word` function in `search.py` to make it case-insensitive and then run the tests.\n\nHere is the modified `contains_word` function:\n\n```python\ndef contains_word(text, word):\n    \"\"\"Return whether the text contains the word.\"\"\"\n    return word.lower() in text.lower()\n```\n\nNow, let's write this change to the file and run the tests.\n",
+      "forbidden_violation": null,
+      "invalid_tool_calls_before_c3": 1,
+      "model": "qwen2.5:7b-instruct",
+      "passed": false,
+      "prompt_tokens": 2932,
+      "proxy": {
+        "blob_references": 0,
+        "c4_escalations": 0,
+        "compression_events": 0,
+        "corrective_retries": 0,
+        "invalid_tool_calls_after_c3": 0,
+        "loop_aborted": 0,
+        "loop_events": 0,
+        "proxy_only_overhead_ms": {
+          "count": 0,
+          "mean": null,
+          "p50": null,
+          "p95": null,
+          "total": null
+        },
+        "tokens_saved_by_compression": 0,
+        "tool_calls_checked": 0,
+        "tool_calls_repaired": 0,
+        "tool_selection_events": 0,
+        "transform_ms": []
+      },
+      "seed": 1,
+      "split": "held-out",
+      "steps": 6,
+      "stop_reason": "model_stopped",
+      "task_id": "heldout-12-case",
+      "test_exit_code": 1,
+      "test_output_tail": "F                                                                        [100%]\n================================== FAILURES ===================================\n_____________________________ test_contains_word ______________________________\n\n    def test_contains_word():\n>       assert contains_word(\"Hello World\", \"world\") is True\nE       AssertionError: assert False is True\nE        +  where False = contains_word('Hello World', 'world')\n\ntests\\test_search.py:5: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_search.py::test_contains_word - AssertionError: assert Fals...\n1 failed in 0.62s\n",
+      "time_to_first_tool_call": 3.828,
+      "tool_calls": [
+        {
+          "arguments_sha256": "d88c998607ba1034",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "122032697e9e8107",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "122032697e9e8107",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "M.schema",
+          "name": "write_file",
+          "ok": false,
+          "tool_error_class": "M.schema",
+          "valid_before_c3": false
+        }
+      ],
+      "total_tokens": 3369,
+      "ttft_seconds": 3.828,
+      "upstream": "http://127.0.0.1:11435/v1",
+      "wall_seconds": 15.780999999959022
+    },
+    {
+      "changed_files": [],
+      "check_seconds": 1.609,
+      "completion_tokens": 480,
+      "condition": "harness",
+      "eligible": true,
+      "excluded_reason": null,
+      "failure_class": "M",
+      "failure_reasons": [
+        "2 tool call(s) did not validate against the client's schema"
+      ],
+      "failure_signals": [
+        "M"
+      ],
+      "final_text": "It seems there was a duplicate response again. Let's proceed with the correct steps to update the `search.py` file and run the tests.\n\nHere is the updated `contains_word` function:\n\n```python\ndef contains_word(text, word):\n    \"\"\"Return whether the text contains the word.\"\"\"\n    return word.lower() in text.lower()\n```\n\nLet's write this updated function to the `search.py` file and run the tests.\n",
+      "forbidden_violation": null,
+      "invalid_tool_calls_before_c3": 2,
+      "model": "qwen2.5:7b-instruct",
+      "passed": false,
+      "prompt_tokens": 3656,
+      "proxy": {
+        "blob_references": 0,
+        "c4_escalations": 0,
+        "compression_events": 0,
+        "corrective_retries": 0,
+        "invalid_tool_calls_after_c3": 2,
+        "loop_aborted": 0,
+        "loop_events": 0,
+        "proxy_only_overhead_ms": {
+          "count": 6,
+          "mean": 16.8187,
+          "p50": 3.7945,
+          "p95": 64.3552,
+          "total": 100.912
+        },
+        "tokens_saved_by_compression": 0,
+        "tool_calls_checked": 5,
+        "tool_calls_repaired": 0,
+        "tool_selection_events": 0,
+        "transform_ms": [
+          6.143,
+          1.074,
+          1.174,
+          7.902,
+          1.446,
+          83.173
+        ]
+      },
+      "seed": 1,
+      "split": "held-out",
+      "steps": 6,
+      "stop_reason": "model_stopped",
+      "task_id": "heldout-12-case",
+      "test_exit_code": 1,
+      "test_output_tail": "F                                                                        [100%]\n================================== FAILURES ===================================\n_____________________________ test_contains_word ______________________________\n\n    def test_contains_word():\n>       assert contains_word(\"Hello World\", \"world\") is True\nE       AssertionError: assert False is True\nE        +  where False = contains_word('Hello World', 'world')\n\ntests\\test_search.py:5: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/test_search.py::test_contains_word - AssertionError: assert Fals...\n1 failed in 0.51s\n",
+      "time_to_first_tool_call": 3.203,
+      "tool_calls": [
+        {
+          "arguments_sha256": "d88c998607ba1034",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "122032697e9e8107",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "122032697e9e8107",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "M.schema",
+          "name": "write_file",
+          "ok": false,
+          "tool_error_class": "M.schema",
+          "valid_before_c3": false
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "M.schema",
+          "name": "write_file",
+          "ok": false,
+          "tool_error_class": "M.schema",
+          "valid_before_c3": false
+        }
+      ],
+      "total_tokens": 4136,
+      "ttft_seconds": 3.203,
+      "upstream": "http://127.0.0.1:11434/v1",
+      "wall_seconds": 17.45300000003772
+    },
+    {
+      "changed_files": [
+        "second.py"
+      ],
+      "check_seconds": 1.234,
+      "completion_tokens": 274,
+      "condition": "baseline",
+      "eligible": true,
+      "excluded_reason": null,
+      "failure_class": "",
+      "failure_reasons": [],
+      "failure_signals": [],
+      "final_text": "The tests have now passed after updating the `second()` function to correctly return the second element of the input list. The changes have been committed to `second.py`, and the tests have confirmed that the fix works as expected.",
+      "forbidden_violation": null,
+      "invalid_tool_calls_before_c3": 0,
+      "model": "qwen2.5:7b-instruct",
+      "passed": true,
+      "prompt_tokens": 2355,
+      "proxy": {
+        "blob_references": 0,
+        "c4_escalations": 0,
+        "compression_events": 0,
+        "corrective_retries": 0,
+        "invalid_tool_calls_after_c3": 0,
+        "loop_aborted": 0,
+        "loop_events": 0,
+        "proxy_only_overhead_ms": {
+          "count": 0,
+          "mean": null,
+          "p50": null,
+          "p95": null,
+          "total": null
+        },
+        "tokens_saved_by_compression": 0,
+        "tool_calls_checked": 0,
+        "tool_calls_repaired": 0,
+        "tool_selection_events": 0,
+        "transform_ms": []
+      },
+      "seed": 1,
+      "split": "held-out",
+      "steps": 5,
+      "stop_reason": "model_stopped",
+      "task_id": "heldout-13-index",
+      "test_exit_code": 0,
+      "test_output_tail": ".                                                                        [100%]\n1 passed in 0.50s\n",
+      "time_to_first_tool_call": 3.437,
+      "tool_calls": [
+        {
+          "arguments_sha256": "d91eca244070e639",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "9a3ec20178230912",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "831802f26fff3a86",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "8d46070afcb6e658",
+          "error_class": "",
+          "name": "write_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "",
+          "name": "run_tests",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        }
+      ],
+      "total_tokens": 2629,
+      "ttft_seconds": 3.437,
+      "upstream": "http://127.0.0.1:11435/v1",
+      "wall_seconds": 12.40600000001723
+    },
+    {
+      "changed_files": [
+        "second.py"
+      ],
+      "check_seconds": 1.171,
+      "completion_tokens": 274,
+      "condition": "harness",
+      "eligible": true,
+      "excluded_reason": null,
+      "failure_class": "",
+      "failure_reasons": [],
+      "failure_signals": [],
+      "final_text": "The tests have now passed after updating the `second()` function to correctly return the second element of the input list. The changes have been committed to `second.py`, and the tests have confirmed that the fix works as expected.",
+      "forbidden_violation": null,
+      "invalid_tool_calls_before_c3": 0,
+      "model": "qwen2.5:7b-instruct",
+      "passed": true,
+      "prompt_tokens": 2355,
+      "proxy": {
+        "blob_references": 0,
+        "c4_escalations": 0,
+        "compression_events": 0,
+        "corrective_retries": 0,
+        "invalid_tool_calls_after_c3": 0,
+        "loop_aborted": 0,
+        "loop_events": 0,
+        "proxy_only_overhead_ms": {
+          "count": 5,
+          "mean": 1.0884,
+          "p50": 0.832,
+          "p95": 2.1936,
+          "total": 5.442
+        },
+        "tokens_saved_by_compression": 0,
+        "tool_calls_checked": 5,
+        "tool_calls_repaired": 0,
+        "tool_selection_events": 0,
+        "transform_ms": [
+          0.472,
+          0.94,
+          0.832,
+          0.691,
+          2.507
+        ]
+      },
+      "seed": 1,
+      "split": "held-out",
+      "steps": 5,
+      "stop_reason": "model_stopped",
+      "task_id": "heldout-13-index",
+      "test_exit_code": 0,
+      "test_output_tail": ".                                                                        [100%]\n1 passed in 0.38s\n",
+      "time_to_first_tool_call": 4.078,
+      "tool_calls": [
+        {
+          "arguments_sha256": "d91eca244070e639",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "9a3ec20178230912",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "831802f26fff3a86",
+          "error_class": "",
+          "name": "read_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "8d46070afcb6e658",
+          "error_class": "",
+          "name": "write_file",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        },
+        {
+          "arguments_sha256": "44136fa355b3678a",
+          "error_class": "",
+          "name": "run_tests",
+          "ok": true,
+          "tool_error_class": "",
+          "valid_before_c3": true
+        }
+      ],
+      "total_tokens": 2629,
+      "ttft_seconds": 4.078,
+      "upstream": "http://127.0.0.1:11434/v1",
+      "wall_seconds": 14.71899999998277
+    }
+  ]
+}

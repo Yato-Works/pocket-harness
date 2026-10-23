@@ -210,6 +210,18 @@ def check_task(task: RepoTask, worktree: Path) -> dict[str, Any]:
     }
 
 
+def upstream_for(config: Config, condition: str) -> str:
+    """Return the base URL the condition should talk to (DECISION.md §7.1).
+
+    When an independent baseline upstream is configured, the baseline runs
+    against it so the two conditions of a comparison cannot inherit each
+    other's upstream state.
+    """
+    if condition == "baseline" and config.upstream.baseline_base_url:
+        return config.upstream.baseline_base_url
+    return config.upstream.base_url
+
+
 async def _run_agent(
     config: Config,
     task: RepoTask,
@@ -225,7 +237,7 @@ async def _run_agent(
     proxy_events: list[dict[str, Any]] = []
     store: StateStore | None = None
     client: httpx.AsyncClient
-    base_url = config.upstream.base_url
+    base_url = upstream_for(config, condition)
 
     if condition == "harness":
         run_config = config.model_copy(deep=True)
@@ -461,7 +473,7 @@ async def _run_one(
         "condition": condition,
         "seed": seed,
         "model": config.upstream.model,
-        "upstream": config.upstream.base_url,
+        "upstream": upstream_for(config, condition),
         "passed": False,
         "eligible": True,
         "excluded_reason": None,
@@ -557,6 +569,7 @@ def build_manifest(
         "config_hash": config.config_hash(),
         "model": config.upstream.model,
         "upstream_base_url": config.upstream.base_url,
+        "baseline_upstream_base_url": config.upstream.baseline_base_url,
         "upstream_model": config.upstream.model,
         "context_length": config.effective_context_length(),
         "seeds": seeds,
