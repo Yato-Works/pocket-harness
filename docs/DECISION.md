@@ -223,3 +223,26 @@ Not another mechanism, and not a bigger suite yet.
 | `pocket-harness diagnose` | the six deterministic mechanism scenarios |
 | [`PERFORMANCE-GATE-AUDIT.md`](PERFORMANCE-GATE-AUDIT.md) | the phases before this one, with their measurements |
 | [`decisions/`](decisions/) | ADR 0001–0005: the design decisions taken along the way |
+| [`benchmarks/criteria-measure-2026-10-23.json`](benchmarks/criteria-measure-2026-10-23.json) | the §7.2 four-criteria measurement (Detectability, Determinism, Auditability, Non-interference), no model calls `scripts/measure_criteria.py` |
+
+### 8.1 What the four-criteria measurement verified — and what it did not
+
+Measured on 2026-10-23 (`scripts/measure_criteria.py`, definitions fixed before
+execution): M-detection 43/43, L-detection 24/24, mechanism scenarios 6/6;
+outcome-level determinism across same-signature artifacts 18/18 cells; failure
+attribution 142/142; no invented arguments, no invisible model calls, no silent
+aborts across all 144 harness runs.
+
+**Recorded as unverified, not assumed:**
+
+* The **transformed-request hash replay** (Plan.md §2) could not be re-measured
+  here: capture mode was `metadata` and the blob/run stores are empty, so no
+  prompt bodies exist to replay. The unit-level replay suite still passes, but
+  the end-to-end replay claim rests on the fixtures of the earlier phases.
+* The audit's claim that **three independent matrix runs agreed in 36 of 36
+  cells** rests on only one of the three runs being archived; the other two were
+  not preserved and cannot be re-verified from what exists.
+* The independent-instance rerun below is a **four-task, one-seed observation**:
+  no pass-outcome flip was observed between runs in *that* configuration. It
+  neither claims nor denies a run-order effect in general; the completion-rate
+  question remains without a claim, as §6 states.

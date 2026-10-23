@@ -1,0 +1,176 @@
+{
+  "auditability": {
+    "entries": [
+      {
+        "denominator": 142,
+        "id": "failure attribution",
+        "notes": [],
+        "numerator": 142,
+        "ratio": 1.0,
+        "satisfied": true
+      },
+      {
+        "denominator": 144,
+        "id": "proxy trace on harness runs",
+        "notes": [],
+        "numerator": 144,
+        "ratio": 1.0,
+        "satisfied": true
+      },
+      {
+        "denominator": 3,
+        "id": "manifest completeness (all artifacts)",
+        "notes": [
+          "pinned-reproducible-matrix.json: missing ['system_prompt', 'system_prompt_sha256', 'tool_error_contract']"
+        ],
+        "numerator": 2,
+        "ratio": 0.6667,
+        "satisfied": false
+      },
+      {
+        "denominator": 2,
+        "id": "manifest completeness (current evaluation artifacts)",
+        "notes": [],
+        "numerator": 2,
+        "ratio": 1.0,
+        "satisfied": true
+      }
+    ]
+  },
+  "definitions_fixed_before_execution": [
+    "C-D1 detectability",
+    "C-D2 determinism",
+    "C-D3 auditability",
+    "C-D4 non-interference"
+  ],
+  "detectability": {
+    "entries": [
+      {
+        "denominator": 43,
+        "id": "M-detection",
+        "notes": [],
+        "numerator": 43,
+        "ratio": 1.0,
+        "satisfied": true
+      },
+      {
+        "denominator": 43,
+        "id": "M-detection volume coverage",
+        "notes": [],
+        "numerator": 43,
+        "ratio": 1.0,
+        "satisfied": true
+      },
+      {
+        "denominator": 24,
+        "id": "L-detection",
+        "notes": [],
+        "numerator": 24,
+        "ratio": 1.0,
+        "satisfied": true
+      },
+      {
+        "denominator": 24,
+        "id": "L-escalation",
+        "notes": [
+          "dev-12-boundary-exclusive seed1: no escalation: the run was terminated without a next model request (stop=repeated_identical_failure)",
+          "dev-12-boundary-exclusive seed2: no escalation: the run was terminated without a next model request (stop=repeated_identical_failure)",
+          "dev-12-boundary-exclusive seed3: no escalation: the run was terminated without a next model request (stop=repeated_identical_failure)",
+          "heldout-07-clamp seed1: no escalation: the run was terminated without a next model request (stop=repeated_identical_failure)",
+          "heldout-07-clamp seed2: no escalation: the run was terminated without a next model request (stop=repeated_identical_failure)",
+          "heldout-07-clamp seed3: no escalation: the run was terminated without a next model request (stop=repeated_identical_failure)",
+          "heldout-08-word-count seed1: no escalation: the run was terminated without a next model request (stop=repeated_identical_failure)",
+          "heldout-08-word-count seed2: no escalation: the run was terminated without a next model request (stop=repeated_identical_failure)",
+          "heldout-08-word-count seed3: no escalation: the run was terminated without a next model request (stop=repeated_identical_failure)"
+        ],
+        "numerator": 15,
+        "ratio": 0.625,
+        "satisfied": false
+      }
+    ]
+  },
+  "determinism": {
+    "entries": [
+      {
+        "denominator": 18,
+        "id": "outcome-level determinism across same-signature artifacts",
+        "notes": [],
+        "numerator": 18,
+        "ratio": 1.0,
+        "satisfied": true
+      }
+    ],
+    "files_compared": [
+      "development-2026-10-22.json",
+      "heldout-2026-10-22.json",
+      "heldout-diagnosis-retry-off.json",
+      "heldout-final.json",
+      "pinned-reproducible-matrix.json",
+      "pre-lock-full-matrix.json"
+    ],
+    "files_excluded_mid_stream_change": [
+      "dev-precise-tool-error.json",
+      "heldout-ab-precise-tool-error.json"
+    ],
+    "files_without_full_signature": [],
+    "note": "comparability requires the manifest signature (config hash, pipeline version, tool error contract, temperature, system prompt hash) to match; files recorded as a mid-stream implementation change are excluded from the numerator even when the old manifest could not tell them apart"
+  },
+  "determinism_unverified": {
+    "transformed-request-hash replay": "unverified: capture mode was metadata, ~/.pocket/runs and ~/.pocket/blobs are empty, no prompt bodies exist to replay"
+  },
+  "document": "criteria measurement (DECISION.md section 7.2)",
+  "mechanism_scenarios": {
+    "exit_code": 0,
+    "live_failed": 0,
+    "live_satisfied": 6,
+    "live_scenarios": 6,
+    "stored_failed": 0,
+    "stored_satisfied": 6
+  },
+  "non_interference": {
+    "entries": [
+      {
+        "denominator": 67,
+        "id": "no invented arguments",
+        "notes": [
+          "total repairs in artifact: 0"
+        ],
+        "numerator": 67,
+        "ratio": 1.0,
+        "satisfied": true
+      },
+      {
+        "denominator": 144,
+        "id": "no invisible model calls",
+        "notes": [
+          "total corrective retries: 0"
+        ],
+        "numerator": 144,
+        "ratio": 1.0,
+        "satisfied": true
+      },
+      {
+        "denominator": 144,
+        "id": "no silent abort",
+        "notes": [
+          "total aborts: 0"
+        ],
+        "numerator": 144,
+        "ratio": 1.0,
+        "satisfied": true
+      },
+      {
+        "denominator": 1,
+        "id": "system prompt integrity",
+        "notes": [
+          "development-2026-10-22.json: 3dfc96d11aeb922f00d0a4d2f591e4f1886dc178b696b98e0545441a55c7efcc",
+          "heldout-2026-10-22.json: 3dfc96d11aeb922f00d0a4d2f591e4f1886dc178b696b98e0545441a55c7efcc"
+        ],
+        "numerator": 1,
+        "ratio": 1.0,
+        "satisfied": true
+      }
+    ]
+  },
+  "scope": "diagnostic re-analysis of previously observed data; the held-out splits here were already observed and are NOT treated as an independent unused held-out set; no model call is made"
+}
