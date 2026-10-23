@@ -1,4 +1,5 @@
-__version__ = "0.1.0"
+#: Package version, kept in sync with ``pyproject.toml`` on a release.
+__version__ = "0.1.0rc1"
 
 #: Version of the deterministic transformation pipeline.
 #:
