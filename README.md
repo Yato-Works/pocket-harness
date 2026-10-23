@@ -397,7 +397,7 @@ tool calls, and `qwen2.5:7b-instruct` returns them **unreliably** (2 of 3).
 The practical consequence: **model choice determines whether tool calling works at
 all, and even then only sometimes.** When the upstream does not return structured
 `tool_calls`, Pocket Harness cannot validate a tool call (C3 has nothing to validate)
-and the client receives the model's text instead. `pocket doctor` reports this as a
+and the client receives the model's text instead. `pocket-harness doctor` reports this as a
 failed `tools.round_trip` check rather than pretending the round trip works.
 
 Note also that Ollama's **native** endpoint (`/api/chat`) returns structured tool calls
