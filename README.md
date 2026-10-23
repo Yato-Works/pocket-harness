@@ -9,6 +9,22 @@ schema validation, trace-derived state, and bounded recovery behavior.
 
 See [`Plan.md`](./Plan.md) for the full design specification (v0.2-design).
 
+## What it guarantees — and what it does not
+
+| | claim | evidence |
+|---|---|---|
+| ✅ | The pipeline is a deterministic function of `(input, configuration, version)` — no network, no LLM, no wall clock in a transformed request | 238 tests, 6/6 mechanism scenarios |
+| ✅ | A recorded run replays identically across a process restart: input hash, config hash, output hash and rule order all match | [`docs/benchmarks/persisted-replay-e2e-2026-10-23.json`](docs/benchmarks/persisted-replay-e2e-2026-10-23.json) |
+| ✅ | Replay never fakes a success: a missing, corrupted or tampered body and a changed configuration each fail | same artifact |
+| ✅ | Every failure is detected with a machine-readable class, and each detected loop carries exactly one attribution (`proxy_escalated` / `client_guard_handled`) | [`docs/benchmarks/criteria-measure-2026-10-23.json`](docs/benchmarks/criteria-measure-2026-10-23.json) |
+| ✅ | The evidence log reconstructs what happened, rule by rule, and arguments are never invented | same artifact; ADR 0005 |
+| ❌ | The model writes correct code, or tasks complete more often | **no completion-rate improvement is claimed** — the measured held-out difference is −12.6 points (p = 0.25) |
+| ❓ | Benchmarks from earlier matrices, non-interference under unevaluated conditions, a general run-order effect | **unverified** — see [`docs/DECISION.md`](docs/DECISION.md) §9 |
+
+The value hypothesis the evidence supports: a deterministic proxy makes the
+recurring failures of an agent on a constrained local model *observable*,
+*reproducible* and *auditable*. It does not turn them into completions.
+
 ## Install
 
 ```bash
@@ -166,8 +182,14 @@ then `./pocket.toml`, then built-in defaults.
 
 ## Status
 
-Implementation in progress. The benchmark numbers are **not** claimed yet; see `Plan.md` §11–§12
-for the gates that must pass before any performance claim is made.
+The completion-rate hypothesis was **not** supported and is withdrawn as a
+claim (G1 "stop"); the value hypothesis is the redefined one — detection,
+determinism, auditability, non-interference — with its own measured criteria
+and its own open items.
+The decision, the assurance matrix and the full evidence index are in
+[`docs/DECISION.md`](docs/DECISION.md).
+The transformation pipeline below is described as designed; the verified status
+of each piece is in the decision document.
 
 
 ## The transformation pipeline
@@ -476,15 +498,21 @@ v0.1. The core pipeline, proxy, evidence system, replay, report and both benchma
 suites are implemented and covered by tests.
 
 **Implemented and verified by tests** — the transformation pipeline (C0/C1/C2/C6),
-the proxy and its evidence log, the replay round trip, the failure taxonomy, the
-statistics, the repository benchmark and the gate evaluation.
+the proxy and its evidence log, the replay round trip (including the persisted,
+cross-process variant), the failure taxonomy with the loop-attribution split,
+the statistics, the repository benchmark and the gate evaluation.
 
 **Implemented and demonstrated against a real Ollama 0.40.6 upstream** —
 `doctor` passes all six checks; the `serve → request → status → report → replay`
 chain completes with a matching replay hash; the proxy-only overhead is p50 1.2 ms /
-p95 5.6 ms, well inside the plan's p95 ≤ 50 ms target; the benchmark matrix is
-**fully reproducible** (36/36 cells identical across three independent runs) once
-the sampling is pinned and the volatile parts of the tool output are removed.
+p95 5.6 ms, well inside the plan's p95 ≤ 50 ms target; and the replay was proven
+end to end across a process restart (input/config/output hashes and rule order,
+with the failure modes refusing to fake a success —
+[`docs/benchmarks/persisted-replay-e2e-2026-10-23.json`](docs/benchmarks/persisted-replay-e2e-2026-10-23.json)).
+
+The archived benchmark matrix reproduced 36/36 cells identically
+(`docs/benchmarks/` holds the one archived run; the other two were not
+preserved, so the three-way agreement claim rests on it — DECISION.md §8.3).
 
 **Implemented but *not* demonstrated** — the performance gates of `Plan.md` §11.5.
 The evaluation now uses **42 repository tasks** (27 development, 15 held-out, all

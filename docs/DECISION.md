@@ -224,6 +224,7 @@ Not another mechanism, and not a bigger suite yet.
 | [`PERFORMANCE-GATE-AUDIT.md`](PERFORMANCE-GATE-AUDIT.md) | the phases before this one, with their measurements |
 | [`decisions/`](decisions/) | ADR 0001–0005: the design decisions taken along the way |
 | [`benchmarks/criteria-measure-2026-10-23.json`](benchmarks/criteria-measure-2026-10-23.json) | the §7.2 four-criteria measurement (Detectability, Determinism, Auditability, Non-interference), no model calls `scripts/measure_criteria.py` |
+| [`benchmarks/persisted-replay-e2e-2026-10-23.json`](benchmarks/persisted-replay-e2e-2026-10-23.json) | the persisted-replay verification across a process restart, in an isolated state root (`scripts/verify_persisted_replay.py`) |
 
 ### 8.2 The loop attribution split (2026-10-23)
 
@@ -272,3 +273,38 @@ aborts across all 144 harness runs.
   no pass-outcome flip was observed between runs in *that* configuration. It
   neither claims nor denies a run-order effect in general; the completion-rate
   question remains without a claim, as §6 states.
+
+## 9. The assurance matrix (2026-10-23)
+
+One table, three explicit sections. Every row carries its evidence; nothing
+in the middle or bottom section may be read as satisfied.
+
+### Guaranteed on the evidence that exists
+
+| claim | scope | evidence |
+|---|---|---|
+| The pipeline is a deterministic function of `(input, configuration, pipeline version)` | every transformation: no network, no LLM, no wall-clock decision | unit suite 238 tests; 6/6 mechanism scenarios (`pocket-harness diagnose`) |
+| The persisted replay reproduces a recorded run across a process restart | input hash, config hash, output hash and rule order all equal, after the proxy process exited | [`persisted-replay-e2e-2026-10-23.json`](benchmarks/persisted-replay-e2e-2026-10-23.json) |
+| Replay never fakes a success | a missing, corrupted or tampered capture body and a changed configuration each end `ok: false` | same artifact, four deliberate-failure scenarios |
+| The C2 reference stubs are content-addressed, not copies | a deleted content blob is re-derived idempotently and the output hash still matches | same artifact, positive control |
+| Failures are detected with a machine-readable class | M-detection 43/43, L-detection 24/24 of the stored records | [`criteria-measure-2026-10-23.json`](benchmarks/criteria-measure-2026-10-23.json) |
+| Each detected loop carries exactly one attribution label | 15 `proxy_escalated`, 9 `client_guard_handled`, 0 `detected_only`; labels are mutually exclusive with explicit evidence gates | same artifact; `tests/test_loop_attribution.py` |
+| The evidence log reconstructs what happened, rule by rule | manifest with config hash, per-request hashes and rule lists | §8 index; 142/142 attribution, 144/144 proxy traces |
+| Arguments are never invented | 0 repairs of invalid calls across all 67 invalid calls (design: §6 C3 §3) | criteria measurement, non-interference section |
+
+### Explicitly NOT provided
+
+| claim | why |
+|---|---|
+| The model writes correct code, or tasks get completed more often | measured held-out difference **−12.6 points** (p = 0.25) — no effect is claimed, ever, without new evidence |
+| The proxy fixes a model that will not emit a well-formed call | the dominant failure class M is unrepairable without guessing (§4) |
+| Upstream reproducibility in general | Ollama 0.40.6 is only reproducible pinned (`temperature = 0` + seed); the order experiment showed a residual sensitivity the suite cannot control |
+
+### Still unverified — stays open by decision §8.3
+
+| item | status |
+|---|---|
+| The two unpreserved matrix runs behind the "36/36 cells identical" claim | re-verification impossible; the claim rests on the one archived run |
+| A hash-replay of the historical 42-task captures | `capture = metadata` stored no bodies; only the fresh-isolated-run replay above is verified end to end |
+| Non-interference under conditions not yet evaluated | the four-criteria measurement covers the stored 42-task artifacts only |
+| A general run-order effect | only a four-task, one-seed observation with independent instances exists (§8.3); no general claim either way |
