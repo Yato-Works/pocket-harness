@@ -8,6 +8,7 @@ would run it.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -19,7 +20,10 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
+# The python whose interpreter should run the served CLI chain. Defaults to the
+# development venv; set ``PH_E2E_PYTHON`` to verify another installation, e.g. a
+# freshly created one, the way a third party would experience it.
+PYTHON = Path(os.environ.get("PH_E2E_PYTHON", ROOT / ".venv" / "Scripts" / "python.exe"))
 
 
 def free_port() -> int:

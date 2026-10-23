@@ -471,6 +471,9 @@ Two scripts help with real-device verification:
 python scripts/e2e_cli_check.py
 python scripts/e2e_cli_check.py --real http://127.0.0.1:11434/v1 qwen2.5:7b-instruct
 
+# Verify a different installation (e.g. a fresh venv) the way a third party runs it.
+$env:PH_E2E_PYTHON = "path/to/other/venv/Scripts/python.exe"; python scripts/e2e_cli_check.py
+
 # Probe what a real upstream actually supports.
 python scripts/probe_upstream.py http://127.0.0.1:11434
 ```

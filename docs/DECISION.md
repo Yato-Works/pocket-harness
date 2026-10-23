@@ -225,6 +225,7 @@ Not another mechanism, and not a bigger suite yet.
 | [`decisions/`](decisions/) | ADR 0001–0005: the design decisions taken along the way |
 | [`benchmarks/criteria-measure-2026-10-23.json`](benchmarks/criteria-measure-2026-10-23.json) | the §7.2 four-criteria measurement (Detectability, Determinism, Auditability, Non-interference), no model calls `scripts/measure_criteria.py` |
 | [`benchmarks/persisted-replay-e2e-2026-10-23.json`](benchmarks/persisted-replay-e2e-2026-10-23.json) | the persisted-replay verification across a process restart, in an isolated state root (`scripts/verify_persisted_replay.py`) |
+| [`benchmarks/fresh-install-check-2026-10-23.json`](benchmarks/fresh-install-check-2026-10-23.json) | the README flow reproduced from a fresh venv (install, init, doctor, serve chain, replay, report) |
 
 ### 8.2 The loop attribution split (2026-10-23)
 
@@ -290,6 +291,7 @@ in the middle or bottom section may be read as satisfied.
 | Failures are detected with a machine-readable class | M-detection 43/43, L-detection 24/24 of the stored records | [`criteria-measure-2026-10-23.json`](benchmarks/criteria-measure-2026-10-23.json) |
 | Each detected loop carries exactly one attribution label | 15 `proxy_escalated`, 9 `client_guard_handled`, 0 `detected_only`; labels are mutually exclusive with explicit evidence gates | same artifact; `tests/test_loop_attribution.py` |
 | The evidence log reconstructs what happened, rule by rule | manifest with config hash, per-request hashes and rule lists | §8 index; 142/142 attribution, 144/144 proxy traces |
+| A third party can follow README.md from a fresh install to doctor, the serve chain, replay and report | fresh uv venv, README command, fresh CLI for the whole chain; the default model's honest `ok: false` is itself part of the check | [`fresh-install-check-2026-10-23.json`](benchmarks/fresh-install-check-2026-10-23.json) |
 | Arguments are never invented | 0 repairs of invalid calls across all 67 invalid calls (design: §6 C3 §3) | criteria measurement, non-interference section |
 
 ### Explicitly NOT provided

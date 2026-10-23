@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-23",
+  "purpose": "prove that a third party can follow README.md from a fresh installation and reach doctor, the serve/request/status/report/replay chain, replay and report",
+  "commit_under_test": "d7073a8",
+  "environment": {
+    "python": "CPython 3.13.5 (uv venv, C:\\Users\\smily\\AppData\\Local\\Temp\\opencode\\ph-thirdparty\\venv)",
+    "install_command": "uv venv && uv pip install -e \"C:/Users/smily/Pocket-Harness[dev]\"",
+    "cli_version": "pocket-harness 0.1.0"
+  },
+  "steps": [
+    {
+      "step": "install from a fresh venv with the README command",
+      "result": "OK",
+      "detail": "the package and all dependencies resolved; pocket-harness.exe is on the fresh venv's Scripts path"
+    },
+    {
+      "step": "pocket-harness init pocket.toml",
+      "result": "OK",
+      "detail": "starter configuration written; defaults point at http://127.0.0.1:11434/v1 and qwen2.5-coder:7b"
+    },
+    {
+      "step": "pocket-harness doctor --config pocket.toml (default model)",
+      "result": "AS PREDICTED, honest failure",
+      "detail": "5 of 6 checks pass; tools.round_trip fails because qwen2.5-coder:7b returned no structured tool call — exactly the documented capability profile (README: 0/3 probes); ok:false, exit 1"
+    },
+    {
+      "step": "pocket-harness doctor --config pocket.toml --model llama3.1:8b-instruct-q4_K_M",
+      "result": "OK",
+      "detail": "6 of 6 checks pass, ok:true; the tool-call round trip validated against the schema"
+    },
+    {
+      "step": "serve -> request -> status -> report -> replay with the fresh venv's CLI (scripts/e2e_cli_check.py with PH_E2E_PYTHON pointing at the fresh interpreter)",
+      "result": "OK",
+      "detail": "mock upstream; every command exited 0; the replay matched (input, config and output hashes equal, rules [])",
+      "run_id": "run-1792726064-fc489e29"
+    },
+    {
+      "step": "pytest tests -q and ruff check src tests scripts with the fresh venv's interpreter",
+      "result": "OK",
+      "detail": "238 tests passed, ruff clean — the [dev] extras work"
+    }
+  ],
+  "summary": {
+    "readme_flow_reproducible": true,
+    "honest_failure_demonstrated": "the default model's tool round-trip failure is reported as a failure, not papered over",
+    "notes": [
+      "the doctor run exercised the user's own Ollama 0.40.6 at 127.0.0.1:11434; no benchmark claims are derived from it",
+      "the state roots used were script-owned isolated directories; ~/.pocket was not touched"
+    ]
+  }
+}
