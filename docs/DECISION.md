@@ -242,6 +242,15 @@ blob store, so every dedupe-bearing request would have replayed to a
 mismatch); and loop-attribution is replayable end to end
 (``tests/test_loop_attribution.py``).
 
+The persisted-replay path was then verified against the real processes: a
+proxy recorded a run in an isolated state root under its own ``serve``
+process, and fresh ``replay`` processes reproduced input hash, config hash,
+output hash, and rule order across the restart, while a missing/corrupted
+capture blob, an altered configuration, and a tampered body each stayed a
+failure
+(``scripts/verify_persisted_replay.py``,
+``docs/benchmarks/persisted-replay-e2e-2026-10-23.json``).
+
 ### 8.3 What the four-criteria measurement verified — and what it did not
 
 Measured on 2026-10-23 (`scripts/measure_criteria.py`, definitions fixed before
