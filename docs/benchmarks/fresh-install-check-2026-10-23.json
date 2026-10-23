@@ -3,8 +3,8 @@
   "purpose": "prove that a third party can follow README.md from a fresh installation and reach doctor, the serve/request/status/report/replay chain, replay and report",
   "commit_under_test": "d7073a8",
   "environment": {
-    "python": "CPython 3.13.5 (uv venv, C:\\Users\\smily\\AppData\\Local\\Temp\\opencode\\ph-thirdparty\\venv)",
-    "install_command": "uv venv && uv pip install -e \"C:/Users/smily/Pocket-Harness[dev]\"",
+    "python": "CPython 3.13.5 (uv venv in the local temp directory)",
+    "install_command": "uv venv && uv pip install -e \"<local repo path>[dev]\"",
     "cli_version": "pocket-harness 0.1.0"
   },
   "steps": [

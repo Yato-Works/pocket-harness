@@ -29,6 +29,7 @@ completion-rate claim.
 from __future__ import annotations
 
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -47,8 +48,17 @@ from httpx import Client, ConnectError  # noqa: E402
 from pocket_harness.hashing import canonical_json  # noqa: E402
 from pocket_harness.state import StateStore  # noqa: E402
 
-CLI = ROOT / ".venv" / "Scripts" / "pocket-harness.exe"
-OUT = ROOT / "docs" / "benchmarks" / "persisted-replay-e2e-2026-10-23.json"
+# The CLI to drive. Defaults to the development venv; set ``PH_E2E_CLI`` to
+# verify another installation, e.g. the installed wheel, the way a third party
+# would run it.
+CLI = Path(os.environ.get("PH_E2E_CLI", str(ROOT / ".venv" / "Scripts" / "pocket-harness.exe")))
+# Where the evidence report is written; keeps a wheel-verification run from
+# overwriting the development one.
+OUT = Path(
+    os.environ.get(
+        "PH_E2E_OUT", str(ROOT / "docs" / "benchmarks" / "persisted-replay-e2e-2026-10-23.json")
+    )
+)
 CHAT_MODEL = "test-model"
 
 
