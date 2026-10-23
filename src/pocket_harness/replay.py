@@ -134,7 +134,13 @@ def run_replay(
     if isinstance(payload, dict) and "payload" in payload:
         payload = payload["payload"]
 
-    pipeline = Pipeline(config)
+    # The recorded transformation produced C2 reference stubs that carry a
+    # ``content_ref`` when the proxy had a blob store (create_app attaches one
+    # always). The replay must therefore reproduce the stub with the same
+    # content-addressed reference, or the output hash comparison would fail on
+    # every request that dedupe touched. ``put_json_blob`` is idempotent, so
+    # reproducing the reference does not rewrite existing blobs.
+    pipeline = Pipeline(config, blob_store=store.put_json_blob)
     canonical, _ = pipeline.normalize(payload)
     result = pipeline.transform(
         canonical,

@@ -105,6 +105,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ARTIFACTS = ROOT / "docs" / "benchmarks"
 
+import sys as _sys  # noqa: E402
+
+_sys.path.insert(0, str(ROOT / "src"))
+
+from pocket_harness.taxonomy import LOOP_ATTRIBUTION_LABELS, classify_loop_attribution  # noqa: E402
+
 #: The artifacts of the 2026-10-22 evaluation (42 tasks, config 1e4eb3bc…).
 EVAL_SUITES = [
     "heldout-2026-10-22.json",
@@ -460,6 +466,70 @@ def measure_non_interference(records: list[dict], artifacts: dict[str, dict]) ->
     return {"entries": entries}
 
 
+def measure_loop_attribution(records: list[dict]) -> dict:
+    """Separate detection from actual mitigation for every detected loop.
+
+    Labels per detected loop (mutually exclusive):
+      proxy_escalated / client_guard_handled / detected_only.
+
+    ``client_guard_handled`` requires EXPLICIT client-guard evidence: the
+    run was stopped by the client's identical-failure safeguard
+    (``stop_reason == repeated_identical_failure``). The mere absence of a
+    next model request is never treated as client-guard evidence.
+
+    The label counts are recorded as data — a client-guard stop is NOT
+    reclassified as a proxy success. The pass criterion is only that every
+    detected loop carries exactly one attribution label.
+    """
+    harness = [r for r in records if r["condition"] == "harness"]
+    detected = [
+        r for r in harness
+        if (r.get("proxy") or {}).get("loop_events", 0) >= 1
+        or (r.get("proxy") or {}).get("c4_escalations", 0) >= 1
+    ]
+    labelled: dict[str, list[str]] = {label: [] for label in LOOP_ATTRIBUTION_LABELS}
+    labels_with_client_stop = []
+    for record in detected:
+        proxy = record.get("proxy") or {}
+        attribution = classify_loop_attribution(
+            loop_events=int(proxy.get("loop_events") or 0),
+            proxy_escalations=int(proxy.get("c4_escalations") or 0),
+            stop_reason=record.get("stop_reason"),
+        )
+        assert attribution.label in labelled  # noqa: S101 - labels are fixed
+        labelled[attribution.label].append(
+            {"task": record["task_id"], "seed": record["seed"], "notes": attribution.notes}
+        )
+        if record.get("stop_reason") == "repeated_identical_failure":
+            labels_with_client_stop.append(
+                f"{record['task_id']} seed{record['seed']}: client-stop evidence in the record"
+            )
+    covered = sum(len(items) for items in labelled.values())
+    return {
+        "tally": {label: len(items) for label, items in labelled.items()},
+        "examples": {
+            label: [item["task"] for item in items[:8]] for label, items in labelled.items()
+        },
+        "entries": [
+            _entity(
+                "attribution coverage (each detected loop carries exactly one label)",
+                len(detected),
+                covered,
+                covered == len(detected),
+                [],
+            ),
+        ],
+        "definitions": (
+            "proxy_escalated = the proxy's warning reached a later request "
+            "(c4_escalations >= 1); client_guard_handled = the record carries "
+            "explicit client-stop evidence (stop_reason "
+            "'repeated_identical_failure'), and a stop for which no evidence "
+            "exists stays detected_only; labels are mutually exclusive"
+        ),
+        "client_stop_evidence_seen": labels_with_client_stop,
+    }
+
+
 def run_diagnose() -> dict:
     result = subprocess.run(
         [
@@ -529,6 +599,7 @@ def main() -> int:
         },
         "auditability": measure_auditability(records, artifacts),
         "non_interference": measure_non_interference(records, artifacts),
+        "loop_attribution": measure_loop_attribution(records),
         "mechanism_scenarios": run_diagnose(),
     }
     text = json.dumps(report, indent=2, ensure_ascii=False, sort_keys=True)

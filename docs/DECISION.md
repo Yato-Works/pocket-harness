@@ -225,7 +225,24 @@ Not another mechanism, and not a bigger suite yet.
 | [`decisions/`](decisions/) | ADR 0001–0005: the design decisions taken along the way |
 | [`benchmarks/criteria-measure-2026-10-23.json`](benchmarks/criteria-measure-2026-10-23.json) | the §7.2 four-criteria measurement (Detectability, Determinism, Auditability, Non-interference), no model calls `scripts/measure_criteria.py` |
 
-### 8.1 What the four-criteria measurement verified — and what it did not
+### 8.2 The loop attribution split (2026-10-23)
+
+Detection and actual mitigation are now separate indicators
+(``taxonomy.classify_loop_attribution``, ``scripts/measure_criteria.py``).
+The 24 detected loops of the 42-task artifacts attribute to
+**15 ``proxy_escalated``** (the warning reached a later request) and
+**9 ``client_guard_handled``** (the record carries the client's own
+identical-failure stop evidence), with **0 ``detected_only``**. The
+``L-escalation`` entry (15/24) above is kept unchanged for the before/after
+comparison; a client-guard stop is data, not a proxy success.
+
+Two repairs came with this: ``pocket replay`` now reproduces the C2 stub
+``content_ref`` of the recorded requests (its pipeline lacked the recorded
+blob store, so every dedupe-bearing request would have replayed to a
+mismatch); and loop-attribution is replayable end to end
+(``tests/test_loop_attribution.py``).
+
+### 8.3 What the four-criteria measurement verified — and what it did not
 
 Measured on 2026-10-23 (`scripts/measure_criteria.py`, definitions fixed before
 execution): M-detection 43/43, L-detection 24/24, mechanism scenarios 6/6;

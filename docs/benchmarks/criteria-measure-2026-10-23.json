@@ -119,6 +119,58 @@
     "transformed-request-hash replay": "unverified: capture mode was metadata, ~/.pocket/runs and ~/.pocket/blobs are empty, no prompt bodies exist to replay"
   },
   "document": "criteria measurement (DECISION.md section 7.2)",
+  "loop_attribution": {
+    "client_stop_evidence_seen": [
+      "dev-12-boundary-exclusive seed1: client-stop evidence in the record",
+      "dev-12-boundary-exclusive seed2: client-stop evidence in the record",
+      "dev-12-boundary-exclusive seed3: client-stop evidence in the record",
+      "heldout-07-clamp seed1: client-stop evidence in the record",
+      "heldout-07-clamp seed2: client-stop evidence in the record",
+      "heldout-07-clamp seed3: client-stop evidence in the record",
+      "heldout-08-word-count seed1: client-stop evidence in the record",
+      "heldout-08-word-count seed2: client-stop evidence in the record",
+      "heldout-08-word-count seed3: client-stop evidence in the record"
+    ],
+    "definitions": "proxy_escalated = the proxy's warning reached a later request (c4_escalations >= 1); client_guard_handled = the record carries explicit client-stop evidence (stop_reason 'repeated_identical_failure'), and a stop for which no evidence exists stays detected_only; labels are mutually exclusive",
+    "entries": [
+      {
+        "denominator": 24,
+        "id": "attribution coverage (each detected loop carries exactly one label)",
+        "notes": [],
+        "numerator": 24,
+        "ratio": 1.0,
+        "satisfied": true
+      }
+    ],
+    "examples": {
+      "client_guard_handled": [
+        "dev-12-boundary-exclusive",
+        "dev-12-boundary-exclusive",
+        "dev-12-boundary-exclusive",
+        "heldout-07-clamp",
+        "heldout-07-clamp",
+        "heldout-07-clamp",
+        "heldout-08-word-count",
+        "heldout-08-word-count"
+      ],
+      "detected_only": [],
+      "proxy_escalated": [
+        "heldout-19-script",
+        "heldout-19-script",
+        "dev-01-fix-add",
+        "dev-01-fix-add",
+        "dev-01-fix-add",
+        "dev-03-rename-symbol",
+        "dev-20-feature",
+        "dev-20-feature"
+      ]
+    },
+    "tally": {
+      "client_guard_handled": 9,
+      "detected_only": 0,
+      "proxy_escalated": 15
+    }
+  },
   "mechanism_scenarios": {
     "exit_code": 0,
     "live_failed": 0,

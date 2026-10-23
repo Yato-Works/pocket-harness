@@ -225,12 +225,105 @@ def signal_tally(classifications: Iterable[Classification]) -> dict[str, int]:
     return counts
 
 
+#: The stop reason that the *client's own* identical-failure guard emits when
+#: it stops a run without issuing another model request (``ScriptedAgent``).
+#: This string is explicit client-side evidence; the proxy never sets it.
+CLIENT_GUARD_STOP_REASON = "repeated_identical_failure"
+
+#: Mitigation-attribution labels for a *detected* loop. Detection and actual
+#: mitigation are different facts and are measured as different indicators.
+#: The labels are mutually exclusive per run.
+LOOP_ATTRIBUTION_LABELS = (
+    "proxy_escalated",
+    "client_guard_handled",
+    "detected_only",
+)
+
+
+@dataclass
+class LoopAttribution:
+    """Attribution of a detected loop to the mitigation that handled it."""
+
+    label: str
+    detected: bool
+    notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "label": self.label,
+            "detected": self.detected,
+            "notes": list(self.notes),
+        }
+
+
+def classify_loop_attribution(
+    *,
+    loop_events: int = 0,
+    proxy_escalations: int = 0,
+    stop_reason: str | None = None,
+) -> LoopAttribution:
+    """Separate *detection* from actual mitigation for one run.
+
+    The labels are mutually exclusive, in this precedence:
+
+    * ``proxy_escalated`` — the proxy actually intervened: its deterministic
+      warning reached a later request (``proxy_escalations >= 1``, which is
+      derived from ``request.transformed`` events carrying a C4 rule).
+    * ``client_guard_handled`` — recorded **only on explicit client-guard
+      evidence**: the run was stopped by the client's identical-failure
+      safeguard (``stop_reason == CLIENT_GUARD_STOP_REASON``). The mere fact
+      that no next request arrived is not sufficient evidence.
+    * ``detected_only`` — detected, but no mitigation can be credited from
+      the evidence.
+    * ``not_detected`` — no detection evidence exists at all.
+
+    Detection evidence comes from either path: the client-side observation of
+    repeated calls (``loop.detected`` events, ``loop_events > 0``) or the
+    history-derived repetition that produced a C4 escalation rule.
+
+    If the proxy escalated and the client guard also stopped the run, the
+    attribution is ``proxy_escalated`` (the credit goes to the mitigation
+    that reached the model) and a note records the client stop, so nothing
+    is silently dropped and no event is counted twice.
+    """
+    if loop_events <= 0 and proxy_escalations <= 0:
+        return LoopAttribution(label="not_detected", detected=False)
+    notes: list[str] = []
+    if proxy_escalations > 0:
+        if stop_reason == CLIENT_GUARD_STOP_REASON:
+            notes.append(
+                "the client's identical-failure guard also stopped the run "
+                "after the escalation; the labels are exclusive and the "
+                "escalation is credited"
+            )
+        return LoopAttribution(label="proxy_escalated", detected=True, notes=notes)
+    if stop_reason == CLIENT_GUARD_STOP_REASON:
+        notes.append(
+            "the client's identical-failure guard stopped the run (explicit "
+            "client-side stop evidence)"
+        )
+        return LoopAttribution(
+            label="client_guard_handled",
+            detected=True,
+            notes=notes,
+        )
+    notes.append(
+        "no proxy escalation recorded and no explicit client-guard stop; "
+        "no mitigation can be credited from the evidence alone"
+    )
+    return LoopAttribution(label="detected_only", detected=True, notes=notes)
+
+
 __all__ = [
     "ADDRESSABLE",
+    "CLIENT_GUARD_STOP_REASON",
     "CLASSES",
     "CLASS_NAMES",
     "Classification",
+    "LOOP_ATTRIBUTION_LABELS",
+    "LoopAttribution",
     "PRECEDENCE",
+    "classify_loop_attribution",
     "classify_run",
     "is_context_error",
     "signal_tally",
